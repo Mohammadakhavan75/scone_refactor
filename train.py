@@ -5,7 +5,7 @@ def parsing():
     parser = argparse.ArgumentParser(description='Tunes a CIFAR Classifier with OE',
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # datasets
-    parser.add_argument('dataset', type=str, choices=['cifar10', 'cifar100'],
+    parser.add_argument('--dataset', type=str, choices=['cifar10', 'cifar100'],
                         default='cifar10', help='Choose between CIFAR-10, CIFAR-100, MNIST.')
     parser.add_argument('--aux_out_dataset', type=str, default='svhn', choices=['svhn'],
                         help='Auxiliary out of distribution dataset')
@@ -74,3 +74,8 @@ def parsing():
 
     return args
 
+
+if __name__ == "__main__":
+    args = parsing()
+
+    
