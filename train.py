@@ -152,14 +152,40 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader):
         e_in = energy_in(out, args.learnable_parameter_w, len(in_data_imgs), args)
 
         loss_ce = cross_entropy_loss(in_data_lables, out[:len(in_data_imgs)])
-        # loss.backward()
-        # optimizer.step()
+
+         # Calcualting loss function using ALM
+        loss = e_wild
+
+        # if beta_1 * (e_in - alpha) + lamda_1 >= 0:
+        #     loss += (e_in - alpha) * lamda_1 + (beta_1/2) * torch.pow(e_in, 2)
+        if args.beta_1 * e_in + args.lamda_1 >= 0:
+            loss += e_in * args.lamda_1 + (args.beta_1/2) * torch.pow(e_in, 2)
+        else:
+            loss += -(((args.lamda_1) ** 2) / (2 * args.beta_1))
+
+        # if beta_2 * (loss_ce - tou) + lamda_2 >= 0:
+        #     loss += (loss_ce - tou) * lamda_2 + (beta_2/2) * torch.pow(loss_ce, 2)
+        if args.beta_2 * loss_ce + args.lamda_2 >= 0:
+            loss += loss_ce * args.lamda_2 + (args.beta_2/2) * torch.pow(loss_ce, 2)
+        else:
+            loss += -(((args.lamda_2) ** 2) / (2 * args.beta_2))
+
+        loss.backward()
+        optimizer.step()
 
 
 
 if __name__ == "__main__":
     args = parsing()
     
+    args.beta_1 = 0
+    args.beta_2 = 0
+    args.alpha = 0
+    args.lamda_1 = 0
+    args.lamda_2 = 0
+    args.tou = 0
+
+
     in_train_loader, in_test_loader, in_shift_train_loader, in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader = main(args)
     
     if args.mode == 'multiclass':
