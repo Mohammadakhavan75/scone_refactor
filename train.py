@@ -129,15 +129,15 @@ if __name__ == "__main__":
         os.makedirs(model_save_path, exist_ok=True)
 
     writer = SummaryWriter(save_path)
-    train_global_iter = 0
+    global_train_iter = 0
     global_eval_iter = 0
     best_acc = 0.0
-    
+
     for epoch in range(0, args.epochs):
         print('epoch', epoch + 1, '/', args.epochs)
 
-        train_global_iter, epoch_loss, epoch_accuracies = train(train_loader, out_train_loader, net, train_global_iter, criterion, optimizer, sigmoid, device)
-        global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, net, global_eval_iter, criterion, device, sigmoid)
+        global_train_iter, epoch_loss, epoch_accuracies = train(train_loader, out_train_loader, model, global_train_iter, criterion, optimizer, device)
+        global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, criterion, device)
 
 
         writer.add_scalar("Train/avg_loss", np.mean(epoch_loss), epoch)
