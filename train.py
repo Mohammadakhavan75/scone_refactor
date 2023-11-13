@@ -3,25 +3,29 @@ from models.wrn import WideResNet
 from datetime import datetime
 import numpy as np
 import argparse
+
 import torch
 import os
+
+from datasets import main
+
 
 
 def parsing():
     parser = argparse.ArgumentParser(description='Tunes a CIFAR Classifier with OE',
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # datasets
-    parser.add_argument('--dataset', type=str, choices=['cifar10', 'cifar100'],
+    parser.add_argument('--in_dataset', type=str, choices=['cifar10', 'cifar100'],
                         default='cifar10', help='Choose between CIFAR-10, CIFAR-100, MNIST.')
-    parser.add_argument('--aux_out_dataset', type=str, default='svhn', choices=['svhn'],
+    parser.add_argument('--aux_dataset', type=str, default='svhn', choices=['svhn'],
                         help='Auxiliary out of distribution dataset')
-    parser.add_argument('--test_out_dataset', type=str, default='svhn', choices=['svhn'],
+    parser.add_argument('--ood_dataset', type=str, default='svhn', choices=['svhn'],
                         help='Test out of distribution dataset')
     parser.add_argument('--pi_1', type=float, default=0.5,
                         help='pi in ssnd framework, proportion of ood data in auxiliary dataset')
     parser.add_argument('--pi_2', type=float, default=0.5,
                         help='pi in ssnd framework, proportion of ood data in auxiliary dataset')
-    parser.add_argument('--shift', type=str, default='gaussian_noise',
+    parser.add_argument('--in_shift', type=str, default='gaussian_noise',
                          help='corrupted type of images')
     parser.add_argument("--one_class_idx", type=int, default=3,
                          help='ID class indx')
@@ -99,7 +103,9 @@ def load_optim(args, model):
 
 if __name__ == "__main__":
     args = parsing()
-
+    
+    in_train_loader,in_test_loader, in_shift_train_loader,in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader = main(args)
+    
     if args.mode == 'multiclass':
         num_classes = 10
     elif args.mode == 'oneclass':
@@ -159,3 +165,4 @@ if __name__ == "__main__":
         if np.mean(eval_acc) < best_acc:
             scheduler.step()
         
+
