@@ -1,5 +1,14 @@
+from torch.utils.tensorboard import SummaryWriter
+from models.wrn import WideResNet
+from datetime import datetime
+import numpy as np
 import argparse
+
+import torch
+import os
+
 from datasets import main
+
 
 
 def parsing():
@@ -48,10 +57,6 @@ def parsing():
                         help='dropout probability')
     
     # Checkpoints
-    parser.add_argument('--results_dir', type=str,
-                        default='results', help='Folder to save .pkl results.')
-    parser.add_argument('--checkpoints_dir', type=str,
-                        default='checkpoints', help='Folder to save .pt checkpoints.')
     parser.add_argument('--load_pretrained', type=str, default=None,
                          help='Load pretrained model to test or resume training.')
     parser.add_argument('--start_epoch', type=int, default=0,
@@ -71,11 +76,93 @@ def parsing():
     parser.add_argument('--alpha', type=float, default=0.05,
                          help='number of labeled samples')
     
+    parser.add_argument('--mode', type=str, default='multiclass',
+                         choices=['multiclass', 'oneclass'],help='number of labeled samples')
+    
     args = parser.parse_args()
 
     return args
 
-args = parsing()
 
-in_train_loader,in_test_loader, in_shift_train_loader,in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader = main(args)
+def load_optim(args, model):
+    
+    if args.optim == 'sgd':
+        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate,
+                                     momentum=args.momentum,weight_decay=args.decay)
+    elif args.optim == 'adam':
+        optimizer = torch.optim.Adam(model.parameters(), args.learning_rate, 
+                                     weight_decay=args.decay)
+    else:
+        raise NotImplemented("Not implemented optimizer!")
+    
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_update_rate, gamma=args.lr_gamma)
+
+    return optimizer, scheduler
+
+
+
+if __name__ == "__main__":
+    args = parsing()
+    
+    in_train_loader,in_test_loader, in_shift_train_loader,in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader = main(args)
+    
+    if args.mode == 'multiclass':
+        num_classes = 10
+    elif args.mode == 'oneclass':
+        num_classes = 1
+    else:
+        raise NotImplemented("mode must be multiclass or oneclass !!")
+
+    model = WideResNet(args.layers, num_classes, args.widen_factor, dropRate=args.droprate)
+    learnable_parameter_w = torch.nn.Linear(1, 1)
+
+    model = model.to(args.device)
+    learnable_parameter_w = learnable_parameter_w.to(args.device)
+    
+    optimizer, scheduler = load_optim(args, model)
+
+    if args.load_pretrained is not None:
+        print("Loading from pretrained model...")
+        model.load_state_dict(torch.load(args.load_pretrained))
+        
+    #     save_path = args.save_path
+    #     model_save_path = save_path + 'models/'
+    # else:
+    addr = datetime.today().strftime('%Y_%m_%d_%H_%M_%S_%f')
+    save_path = './run/exp_' + addr + f'_{args.mode}' + f"__{args.run_index}__" + f'_{args.learning_rate}' + f'_{args.lr_update_rate}' + f'_{args.lr_gamma}' + f'_{args.optimizer}' + '/'
+    model_save_path = save_path + 'models/'
+    if not os.path.exists(model_save_path):
+        os.makedirs(model_save_path, exist_ok=True)
+
+    writer = SummaryWriter(save_path)
+    global_train_iter = 0
+    global_eval_iter = 0
+    best_acc = 0.0
+
+    for epoch in range(0, args.epochs):
+        print('epoch', epoch + 1, '/', args.epochs)
+
+        global_train_iter, epoch_loss, epoch_accuracies = train(train_loader, out_train_loader, model, global_train_iter, criterion, optimizer, device)
+        global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, criterion, device)
+
+
+        writer.add_scalar("Train/avg_loss", np.mean(epoch_loss), epoch)
+        writer.add_scalar("Train/avg_acc", np.mean(epoch_accuracies), epoch)
+        writer.add_scalar("Evaluation/avg_loss", np.mean(eval_loss), epoch)
+        writer.add_scalar("Evaluation/avg_acc", np.mean(eval_acc), epoch)
+        writer.add_scalar("Evaluation/avg_auc", np.mean(eval_auc), epoch)
+
+        print(f"Train/avg_loss: {np.mean(epoch_loss)} Train/avg_acc: {np.mean(epoch_accuracies)} \
+            Evaluation/avg_loss: {np.mean(eval_loss)} Evaluation/avg_acc: {np.mean(eval_acc)}  Evaluation/avg_auc: {np.mean(eval_auc)}")
+        
+        if (epoch+1) % 5 == 0:
+            torch.save(model.state_dict(), os.path.join(model_save_path, f'model_params_epoch_{epoch}.pt'))
+
+        if np.mean(eval_acc) > best_acc:
+            best_acc = np.mean(eval_acc)
+            torch.save(model.state_dict(), os.path.join(model_save_path, 'best_params.pt'))
+        
+        if np.mean(eval_acc) < best_acc:
+            scheduler.step()
+        
 
