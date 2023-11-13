@@ -242,6 +242,8 @@ if __name__ == "__main__":
         print('epoch', epoch + 1, '/', args.epochs)
 
         global_train_iter, epoch_loss, epoch_accuracies = train(train_loader, out_train_loader, model, global_train_iter, cross_entropy_loss, optimizer)
+        # TODO: calculate loss on all train_data again before calling this function
+        ALM_optim()
         global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, cross_entropy_loss)
 
 
