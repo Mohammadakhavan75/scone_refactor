@@ -1,5 +1,5 @@
 import argparse
-
+from models.wrn import WideResNet
 
 def parsing():
     parser = argparse.ArgumentParser(description='Tunes a CIFAR Classifier with OE',
@@ -70,6 +70,9 @@ def parsing():
     parser.add_argument('--alpha', type=float, default=0.05,
                          help='number of labeled samples')
     
+    parser.add_argument('--mode', type=str, default='multiclass',
+                         choices=['multiclass', 'oneclass'],help='number of labeled samples')
+    
     args = parser.parse_args()
 
     return args
@@ -77,5 +80,11 @@ def parsing():
 
 if __name__ == "__main__":
     args = parsing()
+    if args.mode == 'multiclass':
+        num_classes = 10
+    elif args.mode == 'oneclass':
+        num_classes = 1
 
+    model = WideResNet(args.layers, num_classes, args.widen_factor, dropRate=args.droprate)
+    print(model)
     
