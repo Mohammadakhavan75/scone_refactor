@@ -80,6 +80,11 @@ def parsing():
                          choices=['multiclass', 'oneclass'],help='number of labeled samples')
     parser.add_argument('--run_index', default=0, type=int, help='run index')
     
+
+    # ALM
+    parser.add_argument('--beta_penalty', default=0.1, type=int, help='beta penalty')
+    parser.add_argument('--tolerance', default=0.1, type=int, help='threshold tolerance')
+
     args = parser.parse_args()
 
     return args
@@ -134,6 +139,15 @@ def energy_in(out, learnable_parameter_w, len_in):
     return torch.mean(torch.sigmoid(-learnable_parameter_w(
                 (torch.logsumexp(out[:len_in], dim=1) - args.eta).unsqueeze(1)).squeeze()))
     
+
+def ALM_optim(e_in, loss_ce):
+    
+    if e_in > args.alpha + args.tolerance:
+        args.beta_1 *= args.beta_penalty
+    if loss_ce > args.tou + args.tolerance:
+        args.beta_2 *= args.beta_penalty
+
+
 
 def train(args, in_train_loader, in_shift_train_loader, aux_train_loader):
     
