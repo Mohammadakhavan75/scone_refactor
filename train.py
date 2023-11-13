@@ -1,5 +1,6 @@
 import argparse
 from models.wrn import WideResNet
+import torch
 
 def parsing():
     parser = argparse.ArgumentParser(description='Tunes a CIFAR Classifier with OE',
@@ -78,13 +79,36 @@ def parsing():
     return args
 
 
+def load_optim(args, model):
+    
+    if args.optim == 'sgd':
+        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate,
+                                     momentum=args.momentum,weight_decay=args.decay)
+    elif args.optim == 'adam':
+        optimizer = torch.optim.Adam(model.parameters(), args.learning_rate, 
+                                     weight_decay=args.decay)
+    else:
+        raise NotImplemented("Not implemented optimizer!")
+    
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_update_rate, gamma=args.lr_gamma)
+
+    return optimizer, scheduler
+
+
+
 if __name__ == "__main__":
     args = parsing()
     if args.mode == 'multiclass':
         num_classes = 10
     elif args.mode == 'oneclass':
         num_classes = 1
+    else:
+        raise NotImplemented("mode must be multiclass or oneclass !!")
 
     model = WideResNet(args.layers, num_classes, args.widen_factor, dropRate=args.droprate)
-    print(model)
+    learnable_parameter_w = torch.nn.Linear(1, 1)
+
+    model = model.to(args.device)
+    learnable_parameter_w = learnable_parameter_w.to(args.device)
     
+    optimizer, scheduler = load_optim(args, model)
