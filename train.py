@@ -21,9 +21,9 @@ def parsing():
                         help='Auxiliary out of distribution dataset')
     parser.add_argument('--ood_dataset', type=str, default='svhn', choices=['svhn'],
                         help='Test out of distribution dataset')
-    parser.add_argument('--pi_1', type=float, default=0.5,
+    parser.add_argument('--pi_c', type=float, default=0.5,
                         help='pi in ssnd framework, proportion of ood data in auxiliary dataset')
-    parser.add_argument('--pi_2', type=float, default=0.5,
+    parser.add_argument('--pi_s', type=float, default=0.5,
                         help='pi in ssnd framework, proportion of ood data in auxiliary dataset')
     parser.add_argument('--in_shift', type=str, default='gaussian_noise',
                          help='corrupted type of images')
@@ -78,6 +78,7 @@ def parsing():
     
     parser.add_argument('--mode', type=str, default='multiclass',
                          choices=['multiclass', 'oneclass'],help='number of labeled samples')
+    parser.add_argument('--run_index', default=0, type=int, help='run index')
     
     args = parser.parse_args()
 
@@ -100,11 +101,66 @@ def load_optim(args, model):
     return optimizer, scheduler
 
 
+def make_wild_data(args, in_train_batch, in_shift_train_batch, aux_train_batch):
+    
+    rng = np.random.default_rng()
+    
+    mask_12 = rng.choice(a=[False, True], size=(args.batch_size,), p=[1 - (args.pi_c + args.pi_s), (args.pi_c + args.pi_s)])
+    in_train_batch_subsampled = in_train_batch[0][np.invert(mask_12)]
+    in_train_batch_subsampled_label = in_train_batch[1][np.invert(mask_12)]
+
+    mask_1 = rng.choice(a=[False, True], size=(args.batch_size,), p=[1 - args.pi_c, args.pi_c])
+    in_shift_train_batch_subsampled = in_shift_train_batch[0][mask_1]
+    in_shift_train_batch_subsampled_label = in_shift_train_batch[1][mask_1]
+
+    mask_2 = rng.choice(a=[False, True], size=(args.batch_size,), p=[1 - args.pi_s, args.pi_s])
+    aux_train_batch_subsampled = aux_train_batch[0][mask_2]
+    aux_train_batch_subsampled_label = aux_train_batch[1][mask_2]
+
+    wild_data_imgs = torch.cat((in_train_batch_subsampled, in_shift_train_batch_subsampled, aux_train_batch_subsampled), 0)
+    wild_data_lables = torch.cat((in_train_batch_subsampled_label, in_shift_train_batch_subsampled_label, aux_train_batch_subsampled_label), 0)
+
+    return wild_data_imgs, wild_data_lables
+
+
+def energy_wild(out, learnable_parameter_w, len_wild, args):
+
+    return torch.mean(torch.sigmoid(learnable_parameter_w(
+                (torch.logsumexp(out[-len_wild:], dim=1)).unsqueeze(1)).squeeze()))
+
+
+def energy_in(out, learnable_parameter_w, len_in):
+
+    return torch.mean(torch.sigmoid(-learnable_parameter_w(
+                (torch.logsumexp(out[:len_in], dim=1) - args.eta).unsqueeze(1)).squeeze()))
+    
+
+def train(args, in_train_loader, in_shift_train_loader, aux_train_loader):
+    
+    loader = zip(in_train_loader, in_shift_train_loader, aux_train_loader)
+    optimizer.zero_grad()
+    for data in loader:
+        in_train_batch, in_shift_train_batch, aux_train_batch = data
+        wild_data_imgs, wild_data_lables  = make_wild_data(args, in_train_batch, in_shift_train_batch, aux_train_batch)
+        in_data_imgs, in_data_lables = in_train_batch
+        in_data_imgs, in_data_lables, wild_data_imgs, wild_data_lables = \
+            in_data_imgs.to(args.device), in_data_lables.to(args.device), wild_data_imgs.to(args.device), wild_data_lables.to(args.device)
+
+        data = torch.cat((in_data_imgs, wild_data_imgs), 0)
+        out = model(data)
+        e_wild = energy_wild(out, args.learnable_parameter_w, len(wild_data_imgs), args)
+        e_in = energy_in(out, args.learnable_parameter_w, len(in_data_imgs), args)
+
+        loss_ce = cross_entropy_loss(in_data_lables, out[:len(in_data_imgs)])
+        # loss.backward()
+        # optimizer.step()
+
+
 
 if __name__ == "__main__":
     args = parsing()
     
-    in_train_loader,in_test_loader, in_shift_train_loader,in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader = main(args)
+    in_train_loader, in_test_loader, in_shift_train_loader, in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader = main(args)
     
     if args.mode == 'multiclass':
         num_classes = 10
@@ -119,7 +175,10 @@ if __name__ == "__main__":
     model = model.to(args.device)
     learnable_parameter_w = learnable_parameter_w.to(args.device)
     
+    args.learnable_parameter_w = learnable_parameter_w
+
     optimizer, scheduler = load_optim(args, model)
+    cross_entropy_loss = torch.nn.CrossEntropyLoss()
 
     if args.load_pretrained is not None:
         print("Loading from pretrained model...")
@@ -142,8 +201,8 @@ if __name__ == "__main__":
     for epoch in range(0, args.epochs):
         print('epoch', epoch + 1, '/', args.epochs)
 
-        global_train_iter, epoch_loss, epoch_accuracies = train(train_loader, out_train_loader, model, global_train_iter, criterion, optimizer, device)
-        global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, criterion, device)
+        global_train_iter, epoch_loss, epoch_accuracies = train(train_loader, out_train_loader, model, global_train_iter, cross_entropy_loss, optimizer)
+        global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, cross_entropy_loss)
 
 
         writer.add_scalar("Train/avg_loss", np.mean(epoch_loss), epoch)
