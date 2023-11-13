@@ -128,13 +128,13 @@ def make_wild_data(args, in_train_batch, in_shift_train_batch, aux_train_batch):
     return wild_data_imgs, wild_data_lables
 
 
-def energy_wild(out, learnable_parameter_w, len_wild, args):
+def energy_wild(out, learnable_parameter_w, len_wild):
 
     return torch.mean(torch.sigmoid(learnable_parameter_w(
                 (torch.logsumexp(out[-len_wild:], dim=1)).unsqueeze(1)).squeeze()))
 
 
-def energy_in(out, learnable_parameter_w, len_in):
+def energy_in(out, learnable_parameter_w, len_in, args):
 
     return torch.mean(torch.sigmoid(-learnable_parameter_w(
                 (torch.logsumexp(out[:len_in], dim=1) - args.eta).unsqueeze(1)).squeeze()))
@@ -162,7 +162,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader):
 
         data = torch.cat((in_data_imgs, wild_data_imgs), 0)
         out = model(data)
-        e_wild = energy_wild(out, args.learnable_parameter_w, len(wild_data_imgs), args)
+        e_wild = energy_wild(out, args.learnable_parameter_w, len(wild_data_imgs))
         e_in = energy_in(out, args.learnable_parameter_w, len(in_data_imgs), args)
 
         loss_ce = cross_entropy_loss(in_data_lables, out[:len(in_data_imgs)])
