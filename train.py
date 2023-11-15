@@ -108,17 +108,22 @@ def load_optim(args, model):
 
 def make_wild_data(args, in_train_batch, in_shift_train_batch, aux_train_batch):
     
+    max_length = np.min([len(in_train_batch[0]), len(in_shift_train_batch[0]), len(aux_train_batch[0])])
+    b_size = args.batch_size
+    if max_length < args.batch_size:
+        b_size = max_length
+    
     rng = np.random.default_rng()
     
-    mask_12 = rng.choice(a=[False, True], size=(args.batch_size,), p=[1 - (args.pi_c + args.pi_s), (args.pi_c + args.pi_s)])
+    mask_12 = rng.choice(a=[False, True], size=(b_size,), p=[1 - (args.pi_c + args.pi_s), (args.pi_c + args.pi_s)])
     in_train_batch_subsampled = in_train_batch[0][np.invert(mask_12)]
     in_train_batch_subsampled_label = in_train_batch[1][np.invert(mask_12)]
 
-    mask_1 = rng.choice(a=[False, True], size=(args.batch_size,), p=[1 - args.pi_c, args.pi_c])
+    mask_1 = rng.choice(a=[False, True], size=(b_size,), p=[1 - args.pi_c, args.pi_c])
     in_shift_train_batch_subsampled = in_shift_train_batch[0][mask_1]
     in_shift_train_batch_subsampled_label = in_shift_train_batch[1][mask_1]
 
-    mask_2 = rng.choice(a=[False, True], size=(args.batch_size,), p=[1 - args.pi_s, args.pi_s])
+    mask_2 = rng.choice(a=[False, True], size=(b_size,), p=[1 - args.pi_s, args.pi_s])
     aux_train_batch_subsampled = aux_train_batch[0][mask_2]
     aux_train_batch_subsampled_label = aux_train_batch[1][mask_2]
 
