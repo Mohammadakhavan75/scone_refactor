@@ -140,18 +140,23 @@ def energy_in(out, learnable_parameter_w, len_in, args):
                 (torch.logsumexp(out[:len_in], dim=1) - args.eta).unsqueeze(1)).squeeze()))
     
 
-def ALM_optim(e_in, loss_ce, model):
+def ALM_optimizer(args, model, losses):
     
-    if e_in > args.alpha + args.tolerance:
+    if torch.mean(losses['e_in']) > args.alpha + args.tolerance:
         args.beta_1 *= args.beta_penalty
-    if loss_ce > args.tou + args.tolerance:
+    if torch.mean(losses['loss_ce']) > args.tou + args.tolerance:
         args.beta_2 *= args.beta_penalty
 
-    grad = calculate_grads(model)
-    
+    grad = calculate_grads(model, losses)
 
-def calculate_grads(model):
+    args.lambda_1 = args.lambda_1 + args.lambda_1_lr * grad
+    args.lambda_2 = args.lambda_2 + args.lambda_2_lr * grad
+
+
+def calculate_grads(model, losses):
     grads = []
+    loss = torch.mean(losses['loss'])
+    loss.backward()
 
     for param in model.parameters():
         grads.append(torch.mean(param.grad))
@@ -159,10 +164,18 @@ def calculate_grads(model):
     return np.mean(grads)
 
 
-def train(args, in_train_loader, in_shift_train_loader, aux_train_loader):
+
+def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, global_train_iter, ALM_optim=False):
+    
+    optimizer.zero_grad()
+    losses = {
+        'loss': [],
+        'e_wild': [],
+        'e_in': [],
+        'loss_ce': []
+        }
     
     loader = zip(in_train_loader, in_shift_train_loader, aux_train_loader)
-    optimizer.zero_grad()
     for data in loader:
         in_train_batch, in_shift_train_batch, aux_train_batch = data
         wild_data_imgs, wild_data_lables  = make_wild_data(args, in_train_batch, in_shift_train_batch, aux_train_batch)
@@ -171,13 +184,18 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader):
             in_data_imgs.to(args.device), in_data_lables.to(args.device), wild_data_imgs.to(args.device), wild_data_lables.to(args.device)
 
         data = torch.cat((in_data_imgs, wild_data_imgs), 0)
+
+        if not ALM_optim:
+            optimizer.zero_grad()
+            global_train_iter += 1
+
         out = model(data)
         e_wild = energy_wild(out, args.learnable_parameter_w, len(wild_data_imgs))
         e_in = energy_in(out, args.learnable_parameter_w, len(in_data_imgs), args)
 
         loss_ce = cross_entropy_loss(in_data_lables, out[:len(in_data_imgs)])
 
-         # Calcualting loss function using ALM
+        # Calcualting loss function using ALM
         loss = e_wild
 
         # if beta_1 * (e_in - alpha) + lamda_1 >= 0:
@@ -193,10 +211,24 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader):
             loss += loss_ce * args.lamda_2 + (args.beta_2/2) * torch.pow(loss_ce, 2)
         else:
             loss += -(((args.lamda_2) ** 2) / (2 * args.beta_2))
+        
+        if not ALM_optim:
+            loss.backward()
+            optimizer.step()
+        
+        losses['loss'].append(loss)
+        losses['e_wild'].append(e_wild)
+        losses['e_in'].append(e_in)
+        losses['loss_ce'].append(loss_ce)
+        
+        if not ALM_optim:
+            writer.add_scalar("Train/loss", loss, global_train_iter)
+            writer.add_scalar("Train/e_wild", e_wild, global_train_iter)
+            writer.add_scalar("Train/e_in", e_in, global_train_iter)
+            writer.add_scalar("Train/loss_ce", loss_ce, global_train_iter)
 
-        loss.backward()
-        optimizer.step()
 
+    return losses, global_train_iter
 
 
 if __name__ == "__main__":
@@ -251,10 +283,11 @@ if __name__ == "__main__":
     for epoch in range(0, args.epochs):
         print('epoch', epoch + 1, '/', args.epochs)
 
-        global_train_iter, epoch_loss, epoch_accuracies = train(train_loader, out_train_loader, model, global_train_iter, cross_entropy_loss, optimizer)
+        global_train_iter, epoch_loss, epoch_accuracies = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, global_train_iter, ALM_optim=False)
         # TODO: calculate loss on all train_data again before calling this function
-        ALM_optim()
-        global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, cross_entropy_loss)
+        model, loss = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, global_train_iter, ALM_optim=True)
+        ALM_optimizer(args, model, loss)
+        # global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, cross_entropy_loss)
 
 
         writer.add_scalar("Train/avg_loss", np.mean(epoch_loss), epoch)
