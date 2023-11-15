@@ -82,6 +82,10 @@ def parsing():
     
 
     # ALM
+    parser.add_argument('--lambda_1', default=0, type=int, help='Initial lambda_1 value')
+    parser.add_argument('--lambda_2', default=0, type=int, help='Initial lambda_1 value')
+    parser.add_argument('--lambda_1_lr', default=0.1, type=int, help='lambda_1 learning rate')
+    parser.add_argument('--lambda_2_lr', default=0.1, type=int, help='lambda_1 learning rate')
     parser.add_argument('--beta_penalty', default=0.1, type=int, help='beta penalty')
     parser.add_argument('--tolerance', default=0.1, type=int, help='threshold tolerance')
 
@@ -290,7 +294,7 @@ if __name__ == "__main__":
         print('epoch', epoch + 1, '/', args.epochs)
 
         losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=False)
-        # TODO: calculate loss on all train_data again before calling this function
+        # TODO: What is the difference between using all data or last batch to calculate grads!
         losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=True)
         ALM_optimizer(args, model, losses)
         # global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, cross_entropy_loss)
