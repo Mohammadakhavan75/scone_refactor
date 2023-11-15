@@ -152,25 +152,24 @@ def ALM_optimizer(args, model, losses):
     if torch.mean(torch.tensor(losses['loss_ce'])) > args.tou + args.tolerance:
         args.beta_2 *= args.beta_penalty
 
-    grad = calculate_grads(model, losses)
+    grad = calculate_grads(model)
 
     args.lambda_1 = args.lambda_1 + args.lambda_1_lr * grad
     args.lambda_2 = args.lambda_2 + args.lambda_2_lr * grad
 
 
-def calculate_grads(model, losses):
+def calculate_grads(model):
     grads = []
-    loss = torch.mean(torch.tensor((losses['loss'])))
-    loss.backward()
 
     for param in model.parameters():
         grads.append(torch.mean(param.grad))
 
-    return np.mean(grads)
+    return torch.mean(torch.tensor(grads))
 
 
 
-def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, global_train_iter, ALM_optim=False):
+
+def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=False):
     
     optimizer.zero_grad()
     losses = {
@@ -203,23 +202,25 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         # Calcualting loss function using ALM
         loss = e_wild
 
-        # if beta_1 * (e_in - alpha) + lamda_1 >= 0:
-        #     loss += (e_in - alpha) * lamda_1 + (beta_1/2) * torch.pow(e_in, 2)
-        if args.beta_1 * e_in + args.lamda_1 >= 0:
-            loss += e_in * args.lamda_1 + (args.beta_1/2) * torch.pow(e_in, 2)
+        # if beta_1 * (e_in - alpha) + lambda_1 >= 0:
+        #     loss += (e_in - alpha) * lambda_1 + (beta_1/2) * torch.pow(e_in, 2)
+        if args.beta_1 * e_in + args.lambda_1 >= 0:
+            loss += e_in * args.lambda_1 + (args.beta_1/2) * torch.pow(e_in, 2)
         else:
-            loss += -(((args.lamda_1) ** 2) / (2 * args.beta_1))
+            loss += -(((args.lambda_1) ** 2) / (2 * args.beta_1))
 
-        # if beta_2 * (loss_ce - tou) + lamda_2 >= 0:
-        #     loss += (loss_ce - tou) * lamda_2 + (beta_2/2) * torch.pow(loss_ce, 2)
-        if args.beta_2 * loss_ce + args.lamda_2 >= 0:
-            loss += loss_ce * args.lamda_2 + (args.beta_2/2) * torch.pow(loss_ce, 2)
+        # if beta_2 * (loss_ce - tou) + lambda_2 >= 0:
+        #     loss += (loss_ce - tou) * lambda_2 + (beta_2/2) * torch.pow(loss_ce, 2)
+        if args.beta_2 * loss_ce + args.lambda_2 >= 0:
+            loss += loss_ce * args.lambda_2 + (args.beta_2/2) * torch.pow(loss_ce, 2)
         else:
-            loss += -(((args.lamda_2) ** 2) / (2 * args.beta_2))
+            loss += -(((args.lambda_2) ** 2) / (2 * args.beta_2))
         
         if not ALM_optim:
             loss.backward()
             optimizer.step()
+        else:
+            loss.backward()
         
         losses['loss'].append(loss)
         losses['e_wild'].append(e_wild)
@@ -242,8 +243,8 @@ if __name__ == "__main__":
     args.beta_1 = 0
     args.beta_2 = 0
     args.alpha = 0
-    args.lamda_1 = 0
-    args.lamda_2 = 0
+    args.lambda_1 = 0
+    args.lambda_2 = 0
     args.tou = 0
 
 
@@ -288,9 +289,9 @@ if __name__ == "__main__":
     for epoch in range(0, args.epochs):
         print('epoch', epoch + 1, '/', args.epochs)
 
-        losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, global_train_iter, ALM_optim=False)
+        losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=False)
         # TODO: calculate loss on all train_data again before calling this function
-        losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, global_train_iter, ALM_optim=True)
+        losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=True)
         ALM_optimizer(args, model, losses)
         # global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, cross_entropy_loss)
 
