@@ -140,13 +140,23 @@ def energy_in(out, learnable_parameter_w, len_in, args):
                 (torch.logsumexp(out[:len_in], dim=1) - args.eta).unsqueeze(1)).squeeze()))
     
 
-def ALM_optim(e_in, loss_ce):
+def ALM_optim(e_in, loss_ce, model):
     
     if e_in > args.alpha + args.tolerance:
         args.beta_1 *= args.beta_penalty
     if loss_ce > args.tou + args.tolerance:
         args.beta_2 *= args.beta_penalty
 
+    grad = calculate_grads(model)
+    
+
+def calculate_grads(model):
+    grads = []
+
+    for param in model.parameters():
+        grads.append(torch.mean(param.grad))
+
+    return np.mean(grads)
 
 
 def train(args, in_train_loader, in_shift_train_loader, aux_train_loader):
