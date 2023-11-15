@@ -147,9 +147,9 @@ def energy_in(out, learnable_parameter_w, len_in, args):
 
 def ALM_optimizer(args, model, losses):
     
-    if torch.mean(losses['e_in']) > args.alpha + args.tolerance:
+    if torch.mean(torch.tensor(losses['e_in'])) > args.alpha + args.tolerance:
         args.beta_1 *= args.beta_penalty
-    if torch.mean(losses['loss_ce']) > args.tou + args.tolerance:
+    if torch.mean(torch.tensor(losses['loss_ce'])) > args.tou + args.tolerance:
         args.beta_2 *= args.beta_penalty
 
     grad = calculate_grads(model, losses)
@@ -160,7 +160,7 @@ def ALM_optimizer(args, model, losses):
 
 def calculate_grads(model, losses):
     grads = []
-    loss = torch.mean(losses['loss'])
+    loss = torch.mean(torch.tensor((losses['loss'])))
     loss.backward()
 
     for param in model.parameters():
@@ -295,10 +295,10 @@ if __name__ == "__main__":
         # global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, cross_entropy_loss)
 
 
-        writer.add_scalar("Train/avg_loss", torch.mean(losses['loss']), epoch)
-        writer.add_scalar("Train/avg_e_in", torch.mean(losses['e_in']), epoch)
-        writer.add_scalar("Train/avg_e_wild", torch.mean(losses['e_wild']), epoch)
-        writer.add_scalar("Train/avg_loss_ce", torch.mean(losses['loss_ce']), epoch)
+        writer.add_scalar("Train/avg_loss", torch.mean(torch.tensor(losses['loss'])), epoch)
+        writer.add_scalar("Train/avg_e_in", torch.mean(torch.tensor(losses['e_in'])), epoch)
+        writer.add_scalar("Train/avg_e_wild", torch.mean(torch.tensor(losses['e_wild'])), epoch)
+        writer.add_scalar("Train/avg_loss_ce", torch.mean(torch.tensor(losses['loss_ce'])), epoch)
         # writer.add_scalar("Train/avg_acc", torch.mean(epoch_accuracies), epoch)
         # writer.add_scalar("Evaluation/avg_loss", np.mean(eval_loss), epoch)
         # writer.add_scalar("Evaluation/avg_acc", np.mean(eval_acc), epoch)
