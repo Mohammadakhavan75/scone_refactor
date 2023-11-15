@@ -78,17 +78,17 @@ def loader(train_data, test_data, batch_size, num_worker):
     return train_dataloader, test_dataloader
 
 def main(args):
+    
     if args.in_dataset == 'cifar10':
         in_train_dataset, in_test_dataset = load_CIFAR('cifar10')
-        in_train_loader, in_test_loader = loader(in_train_dataset, in_test_dataset, args.batch_size, args.num_worker)
+        
     
     if args.in_dataset == 'cifar100':
         in_train_dataset, in_test_dataset = load_CIFAR('cifar10')
-        in_train_loader, in_test_loader = loader(in_train_dataset, in_test_dataset, args.batch_size, args.num_worker)
     
     if args.aux_dataset == 'svhn':
         aux_train_dataset, aux_test_dataset = load_SVHN()
-        aux_train_loader, aux_test_loader = loader(aux_train_dataset, aux_test_dataset, args.batch_size, args.num_worker)
+        
     
     if args.in_shift is not None:
         train_img_path = f'/storage/users/makhavan/CSI/exp05/scone_one_claas_train/data/CorCIFAR10_train/{args.in_shift}.npy'
@@ -97,13 +97,36 @@ def main(args):
         test_traget_path = '/storage/users/makhavan/CSI/exp05/scone_one_claas_train/data/CorCIFAR10_test/labels.npy'
 
         in_shift_train_dataset, in_shift_test_dataset = load_np_dataset(train_img_path, train_target_path, test_img_path, test_traget_path)
-        in_shift_train_loader, in_shift_test_loader = loader(in_shift_train_dataset, in_shift_test_dataset, args.batch_size, args.num_worker)
+        
 
     if args.ood_dataset == 'svhn':
         ood_train_dataset, ood_test_dataset = load_SVHN()
-        ood_train_loader, ood_test_loader = loader(ood_train_dataset, ood_test_dataset, args.batch_size, args.num_worker)
+        
+    rng = np.random.default_rng()
 
-    return in_train_loader,in_test_loader, in_shift_train_loader,in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader
+    max_length = np.min([len(in_train_dataset), len(in_shift_train_dataset), len(aux_train_dataset)])
+
+    idx_ = np.array(range(len(in_train_dataset)))
+    rng.shuffle(idx_)
+    idx_ = idx_[:max_length]
+    in_train_dataset = torch.utils.data.Subset(in_train_dataset, in_shift_train_dataset)
+
+    idx_ = np.array(range(len(in_shift_train_dataset)))
+    rng.shuffle(idx_)
+    idx_ = idx_[:max_length]
+    in_shift_train_dataset = torch.utils.data.Subset(in_shift_train_dataset, idx_)
+
+    idx_ = np.array(range(len(aux_train_dataset)))
+    rng.shuffle(idx_)
+    idx_ = idx_[:max_length]
+    aux_train_dataset = torch.utils.data.Subset(aux_train_dataset, idx_)
+
+    in_train_loader, in_test_loader = loader(in_train_dataset, in_test_dataset, args.batch_size, args.num_worker)
+    aux_train_loader, aux_test_loader = loader(aux_train_dataset, aux_test_dataset, args.batch_size, args.num_worker)
+    in_shift_train_loader, in_shift_test_loader = loader(in_shift_train_dataset, in_shift_test_dataset, args.batch_size, args.num_worker)
+    ood_train_loader, ood_test_loader = loader(ood_train_dataset, ood_test_dataset, args.batch_size, args.num_worker)
+
+    return in_train_loader, in_test_loader, in_shift_train_loader,in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader
 
 
 
