@@ -1,13 +1,13 @@
 from torch.utils.tensorboard import SummaryWriter
 from models.wrn import WideResNet
 from datetime import datetime
+from tqdm import tqdm
 import numpy as np
 import argparse
-
 import torch
 import os
 
-from datasets import main
+from dataset.datasets import main
 
 
 
@@ -41,7 +41,7 @@ def parsing():
                          help='The update rate for learning rate.')
     parser.add_argument('--lr_gamma', type=float, default=0.9,
                          help='The gamma param for updating learning rate.')
-    parser.add_argument('--optim', type=str, default='sgd',
+    parser.add_argument('--optimizer', type=str, default='sgd',
                          help='The initial learning rate.')
     parser.add_argument('--momentum', type=float, default=0.9,
                          help='Momentum.')
@@ -92,10 +92,10 @@ def parsing():
 
 def load_optim(args, model):
     
-    if args.optim == 'sgd':
+    if args.optimizer == 'sgd':
         optimizer = torch.optim.SGD(model.parameters(), args.learning_rate,
                                      momentum=args.momentum,weight_decay=args.decay)
-    elif args.optim == 'adam':
+    elif args.optimizer == 'adam':
         optimizer = torch.optim.Adam(model.parameters(), args.learning_rate, 
                                      weight_decay=args.decay)
     else:
@@ -176,7 +176,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         }
     
     loader = zip(in_train_loader, in_shift_train_loader, aux_train_loader)
-    for data in loader:
+    for data in tqdm(loader):
         in_train_batch, in_shift_train_batch, aux_train_batch = data
         wild_data_imgs, wild_data_lables  = make_wild_data(args, in_train_batch, in_shift_train_batch, aux_train_batch)
         in_data_imgs, in_data_lables = in_train_batch
@@ -193,7 +193,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         e_wild = energy_wild(out, args.learnable_parameter_w, len(wild_data_imgs))
         e_in = energy_in(out, args.learnable_parameter_w, len(in_data_imgs), args)
 
-        loss_ce = cross_entropy_loss(in_data_lables, out[:len(in_data_imgs)])
+        loss_ce = cross_entropy_loss(out[:len(in_data_imgs)], in_data_lables)
 
         # Calcualting loss function using ALM
         loss = e_wild
