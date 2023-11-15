@@ -6,11 +6,9 @@ import torch
 import PIL
 
 
-
 cifar10_path = '../data/'
 cifar100_path = '../data/'
 svhn_path = '../data/'
-
 
 
 mean = [x / 255 for x in [125.3, 123.0, 113.9]]
@@ -23,9 +21,11 @@ class np_dataset(torch.utils.data.Dataset):
         self.data = np.load(imgs_path)
         self.targets = np.load(targets)
         self.transform = transform
-        
+
+
     def __len__(self):
         return len(self.data)
+
 
     def __getitem__(self, idx):
         img = self.data[idx]        
@@ -71,11 +71,13 @@ def load_np_dataset(train_img_path, train_target_path, test_img_path, test_trage
 
     return train_data, test_data
 
+
 def loader(train_data, test_data, batch_size, num_worker):
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=num_worker)
     test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=num_worker)
 
     return train_dataloader, test_dataloader
+
 
 def main(args):
     
