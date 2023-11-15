@@ -228,7 +228,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
             writer.add_scalar("Train/loss_ce", loss_ce, global_train_iter)
 
 
-    return losses, global_train_iter
+    return losses, model, global_train_iter
 
 
 if __name__ == "__main__":
@@ -283,18 +283,21 @@ if __name__ == "__main__":
     for epoch in range(0, args.epochs):
         print('epoch', epoch + 1, '/', args.epochs)
 
-        global_train_iter, epoch_loss, epoch_accuracies = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, global_train_iter, ALM_optim=False)
+        losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, global_train_iter, ALM_optim=False)
         # TODO: calculate loss on all train_data again before calling this function
-        model, loss = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, global_train_iter, ALM_optim=True)
-        ALM_optimizer(args, model, loss)
+        losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, global_train_iter, ALM_optim=True)
+        ALM_optimizer(args, model, losses)
         # global_eval_iter, eval_loss, eval_acc, eval_auc = test(val_loader, out_val_loader, model, global_eval_iter, cross_entropy_loss)
 
 
-        writer.add_scalar("Train/avg_loss", np.mean(epoch_loss), epoch)
-        writer.add_scalar("Train/avg_acc", np.mean(epoch_accuracies), epoch)
-        writer.add_scalar("Evaluation/avg_loss", np.mean(eval_loss), epoch)
-        writer.add_scalar("Evaluation/avg_acc", np.mean(eval_acc), epoch)
-        writer.add_scalar("Evaluation/avg_auc", np.mean(eval_auc), epoch)
+        writer.add_scalar("Train/avg_loss", torch.mean(losses['loss']), epoch)
+        writer.add_scalar("Train/avg_e_in", torch.mean(losses['e_in']), epoch)
+        writer.add_scalar("Train/avg_e_wild", torch.mean(losses['e_wild']), epoch)
+        writer.add_scalar("Train/avg_loss_ce", torch.mean(losses['loss_ce']), epoch)
+        # writer.add_scalar("Train/avg_acc", torch.mean(epoch_accuracies), epoch)
+        # writer.add_scalar("Evaluation/avg_loss", np.mean(eval_loss), epoch)
+        # writer.add_scalar("Evaluation/avg_acc", np.mean(eval_acc), epoch)
+        # writer.add_scalar("Evaluation/avg_auc", np.mean(eval_auc), epoch)
 
         print(f"Train/avg_loss: {np.mean(epoch_loss)} Train/avg_acc: {np.mean(epoch_accuracies)} \
             Evaluation/avg_loss: {np.mean(eval_loss)} Evaluation/avg_acc: {np.mean(eval_acc)}  Evaluation/avg_auc: {np.mean(eval_auc)}")
