@@ -1,2 +1,5 @@
-models/__pycache__/*
+dataset/__pycache__/datasets.cpython-39.pyc
+models/__pycache__/wrn.cpython-39.pyc
+./dataset/__pycache__/*
+./models/__pycache__/*
 temp.ipynb
