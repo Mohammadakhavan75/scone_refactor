@@ -288,7 +288,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
     return losses, model, global_train_iter
 
 
-def test(args, in_test_loader, in_shift_test_loader, aux_test_loader, ood_test_loader, model, cross_entropy_loss, writer, global_valid_iter):
+def test(args, in_test_loader, in_shift_test_loader, aux_test_loader, ood_test_loader, model, cross_entropy_loss, writer, global_test_iter):
     scores = {
         'in': [],
         'shift': [],
@@ -333,7 +333,7 @@ def test(args, in_test_loader, in_shift_test_loader, aux_test_loader, ood_test_l
 
             data = torch.cat((in_test_imgs, in_shift_test_imgs, aux_test_imgs, ood_test_imgs), 0)
 
-            global_valid_iter += 1
+            global_test_iter += 1
 
             out = model(data)
 
@@ -356,22 +356,22 @@ def test(args, in_test_loader, in_shift_test_loader, aux_test_loader, ood_test_l
             losses['loss_ce'].append(loss_ce_in)
             losses['loss_ce_shift'].append(loss_ce_shift)
             
-            writer.add_scalar("Evaluation/loss_ce_in", loss_ce_in, global_valid_iter)
-            writer.add_scalar("Evaluation/loss_ce_shift", loss_ce_shift, global_valid_iter)
-            writer.add_scalar("Evaluation/e_in_test", energy_test['e_in_test'][i], global_valid_iter)
-            writer.add_scalar("Evaluation/e_shift_test", energy_test['e_shift_test'][i], global_valid_iter)
-            writer.add_scalar("Evaluation/e_aux_test", energy_test['e_aux_test'][i], global_valid_iter)
-            writer.add_scalar("Evaluation/e_ood_test", energy_test['e_ood_test'][i], global_valid_iter)
-            writer.add_scalar("Evaluation/score_in", scores['in'][i], global_valid_iter)
-            writer.add_scalar("Evaluation/score_shift", scores['shift'][i], global_valid_iter)
-            writer.add_scalar("Evaluation/score_aux", scores['aux'][i], global_valid_iter)
-            writer.add_scalar("Evaluation/score_ood", scores['ood'][i], global_valid_iter)
+            writer.add_scalar("Evaluation/loss_ce_in", loss_ce_in, global_test_iter)
+            writer.add_scalar("Evaluation/loss_ce_shift", loss_ce_shift, global_test_iter)
+            writer.add_scalar("Evaluation/e_in_test", energy_test['e_in_test'][i], global_test_iter)
+            writer.add_scalar("Evaluation/e_shift_test", energy_test['e_shift_test'][i], global_test_iter)
+            writer.add_scalar("Evaluation/e_aux_test", energy_test['e_aux_test'][i], global_test_iter)
+            writer.add_scalar("Evaluation/e_ood_test", energy_test['e_ood_test'][i], global_test_iter)
+            writer.add_scalar("Evaluation/score_in", scores['in'][i], global_test_iter)
+            writer.add_scalar("Evaluation/score_shift", scores['shift'][i], global_test_iter)
+            writer.add_scalar("Evaluation/score_aux", scores['aux'][i], global_test_iter)
+            writer.add_scalar("Evaluation/score_ood", scores['ood'][i], global_test_iter)
             
     
     auroc = processing_auroc(scores['in'], scores['ood'])
     fpr95 = compute_fnr(np.array(scores['in']), np.array(scores['ood']))
 
-    return auroc, fpr95, global_valid_iter
+    return auroc, fpr95, global_test_iter
 
 
 
@@ -421,7 +421,7 @@ if __name__ == "__main__":
 
     writer = SummaryWriter(save_path)
     global_train_iter = 0
-    global_eval_iter = 0
+    global_test_iter = 0
     best_acc = 0.0
 
     for epoch in range(0, args.epochs):
@@ -431,7 +431,7 @@ if __name__ == "__main__":
         # TODO: What is the difference between using all data or last batch to calculate grads!
         losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=True)
         ALM_optimizer(args, model, losses)
-        auroc, fpr95, global_valid_iter = test(args, in_test_loader, in_shift_test_loader, aux_test_loader, ood_test_loader, model, cross_entropy_loss, writer, global_valid_iter)
+        auroc, fpr95, global_test_iter = test(args, in_test_loader, in_shift_test_loader, aux_test_loader, ood_test_loader, model, cross_entropy_loss, writer, global_test_iter)
 
 
         writer.add_scalar("Train_avg/loss", torch.mean(torch.tensor(losses['loss'])), epoch)
