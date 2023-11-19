@@ -123,32 +123,6 @@ def main(args):
     idx_ = idx_[:max_length]
     aux_train_dataset = torch.utils.data.Subset(aux_train_dataset, idx_)
 
-
-    # ==========================
-    # TODO: It is worng and I should rewrite the test function to run on each dataset full length
-    max_length = np.min([len(in_test_dataset), len(in_shift_test_dataset), len(aux_test_dataset), len(ood_test_dataset)])
-
-    idx_ = np.array(range(len(in_test_dataset)))
-    rng.shuffle(idx_)
-    idx_ = idx_[:max_length]
-    in_test_dataset = torch.utils.data.Subset(in_test_dataset, idx_)
-
-    idx_ = np.array(range(len(in_shift_train_dataset)))
-    rng.shuffle(idx_)
-    idx_ = idx_[:max_length]
-    in_shift_test_dataset = torch.utils.data.Subset(in_shift_test_dataset, idx_)
-
-    idx_ = np.array(range(len(aux_test_dataset)))
-    rng.shuffle(idx_)
-    idx_ = idx_[:max_length]
-    aux_test_dataset = torch.utils.data.Subset(aux_test_dataset, idx_)
-
-    idx_ = np.array(range(len(ood_test_dataset)))
-    rng.shuffle(idx_)
-    idx_ = idx_[:max_length]
-    ood_test_dataset = torch.utils.data.Subset(ood_test_dataset, idx_)
-
-
     in_train_loader, in_test_loader = loader(in_train_dataset, in_test_dataset, args.batch_size, args.num_worker)
     aux_train_loader, aux_test_loader = loader(aux_train_dataset, aux_test_dataset, args.batch_size, args.num_worker)
     in_shift_train_loader, in_shift_test_loader = loader(in_shift_train_dataset, in_shift_test_dataset, args.batch_size, args.num_worker)
