@@ -32,12 +32,12 @@ def parsing():
                          help='ID class indx')
     
     # Optimization options
-    parser.add_argument('--epochs', '-e', type=int, default=10,
+    parser.add_argument('--epochs', '-e', type=int, default=50,
                         help='Number of epochs to train.')
     parser.add_argument('--batch_size', '-b', type=int,
                         default=128, help='Batch size.')
     parser.add_argument('--learning_rate', '-lr', type=float,
-                        default=0.001, help='The initial learning rate.')
+                        default=0.1, help='The initial learning rate.')
     parser.add_argument('--lr_update_rate', type=float, default=5,
                          help='The update rate for learning rate.')
     parser.add_argument('--lr_gamma', type=float, default=0.9,
@@ -72,23 +72,29 @@ def parsing():
                         help='Pre-fetching threads.')
     
     # Loss function parameters
-    parser.add_argument('--eta', type=float, default=1.0,
-                         help='woods with margin loss')
+    parser.add_argument('--eta', type=float, default=-10,
+                         help='margin loss')
     parser.add_argument('--alpha', type=float, default=0.05,
                          help='number of labeled samples')
-    parser.add_argument('--T', default=1., type=float, help='temperature: energy|Odin')  # T = 1 suggested by energy paper
+    parser.add_argument('--T', default=1., type=float,
+                         help='temperature: energy|Odin')  # T = 1 suggested by energy paper
     parser.add_argument('--mode', type=str, default='multiclass',
                          choices=['multiclass', 'oneclass'],help='number of labeled samples')
     parser.add_argument('--run_index', default=0, type=int, help='run index')
     
-
     # ALM
-    parser.add_argument('--lambda_1', default=0, type=int, help='Initial lambda_1 value')
-    parser.add_argument('--lambda_2', default=0, type=int, help='Initial lambda_1 value')
-    parser.add_argument('--lambda_1_lr', default=0.1, type=int, help='lambda_1 learning rate')
-    parser.add_argument('--lambda_2_lr', default=0.1, type=int, help='lambda_1 learning rate')
-    parser.add_argument('--beta_penalty', default=0.1, type=int, help='beta penalty')
-    parser.add_argument('--tolerance', default=0.1, type=int, help='threshold tolerance')
+    parser.add_argument('--lambda_1', default=0, type=int,
+                         help='Initial lambda_1 value')
+    parser.add_argument('--lambda_2', default=0, type=int,
+                         help='Initial lambda_1 value')
+    parser.add_argument('--lambda_1_lr', default=0.1, type=int,
+                         help='lambda_1 learning rate')
+    parser.add_argument('--lambda_2_lr', default=0.1, type=int,
+                         help='lambda_1 learning rate')
+    parser.add_argument('--beta_penalty', default=0.1, type=int,
+                         help='beta penalty')
+    parser.add_argument('--tolerance', default=0.1, type=int,
+                         help='threshold tolerance')
 
     args = parser.parse_args()
 
@@ -168,19 +174,23 @@ def ALM_optimizer(args, model, losses):
     if torch.mean(torch.tensor(losses['loss_ce'])) > args.tou + args.tolerance:
         args.beta_2 *= args.beta_penalty
 
-    grad = calculate_grads(model)
-
-    args.lambda_1 = args.lambda_1 + args.lambda_1_lr * grad
-    args.lambda_2 = args.lambda_2 + args.lambda_2_lr * grad
+    args.lambda_1 = args.lambda_1 + args.lambda_1_lr * grads_lambda_1(args, losses)
+    args.lambda_2 = args.lambda_2 + args.lambda_2_lr * grads_lambda_2(args, losses)
 
 
-def calculate_grads(model):
-    grads = []
+def grads_lambda_1(args, losses):
+    if args.beta_1 * torch.mean(torch.tensor(losses['e_in'])) + args.lambda_1 >= 0:
+        return torch.mean(torch.tensor(losses['e_in']))
+    else: 
+        return -2 * args.lambda_1/(2*args.beta_1)
 
-    for param in model.parameters():
-        grads.append(torch.mean(param.grad))
 
-    return torch.mean(torch.tensor(grads))
+def grads_lambda_2(args, losses):
+    if args.beta_2 * torch.mean(torch.tensor(losses['loss_ce'])) + args.lambda_2 >= 0:
+        return torch.mean(torch.tensor(losses['loss_ce']))
+    else:
+        return -2 * args.lambda_2/(2*args.beta_2)
+
 
 
 def processing_auroc(out_scores, in_scores):
@@ -437,6 +447,10 @@ if __name__ == "__main__":
         writer.add_scalar("Train_avg/e_in", torch.mean(torch.tensor(losses['e_in'])), epoch)
         writer.add_scalar("Train_avg/e_wild", torch.mean(torch.tensor(losses['e_wild'])), epoch)
         writer.add_scalar("Train_avg/loss_ce", torch.mean(torch.tensor(losses['loss_ce'])), epoch)
+        writer.add_scalar("Train_avg/lambdas", args.lambda_1, epoch)
+        writer.add_scalar("Train_avg/lambdas", args.lambda_2, epoch)
+        writer.add_scalar("Train_avg/betas", args.beta_1, epoch)
+        writer.add_scalar("Train_avg/betas", args.beta_2, epoch)
         writer.add_scalar("Evaluation_avg/auroc", auroc, epoch)
         writer.add_scalar("Evaluation_avg/fpr95", fpr95, epoch)
 
