@@ -198,7 +198,6 @@ def grads_lambda_2(args, losses):
         return -2 * args.lambda_2/(2*args.beta_2)
 
 
-
 def processing_auroc(out_scores, in_scores):
     in_labels = np.zeros(len(in_scores))
     out_labels = np.ones(len(out_scores))
@@ -229,7 +228,6 @@ def compute_fnr(out_scores, in_scores, fpr_cutoff=.05):
         fnr_at_fpr_cutoff = 1.0
 
     return fnr_at_fpr_cutoff
-
 
 
 def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=False):
@@ -373,11 +371,37 @@ if __name__ == "__main__":
     #     model_save_path = save_path + 'models/'
     # else:
     addr = datetime.today().strftime('%Y_%m_%d_%H_%M_%S_%f')
-    save_path = './run/exp_' + addr + f'_{args.mode}' + f"__{args.run_index}__" + f'_{args.learning_rate}' + f'_{args.lr_update_rate}' + f'_{args.lr_gamma}' + f'_{args.optimizer}' + '/'
+    save_path = './run/exp_' + addr + '/'
     model_save_path = save_path + 'models/'
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path, exist_ok=True)
 
+    with open(save_path + 'config.txt', 'w') as f:
+        f.write(f'mode: {args.mode}\n\
+                run index: {args.run_index}\n\
+                learning_rate: {args.learning_rate}\n\
+                lr_update_rate: {args.lr_update_rate}\n\
+                lr_gamma: {args.lr_gamma}\n\
+                optimizer: {args.optimizer}\
+                lambda_1: {args.lambda_1}\n\
+                lambda_2: {args.lambda_2}\n\
+                lambda_1_lr: {args.lambda_1_lr}\n\
+                lambda_2_lr: {args.lambda_2_lr}\n\
+                beta_1: {args.beta_1}\n\
+                beta_2: {args.beta_2}\n\
+                beta_penalty: {args.beta_penalty}\n\
+                tolerance: {args.tolerance}\n\
+                eta: {args.eta}\n\
+                tou: {args.tou}\n\
+                alpha: {args.alpha}\n\
+                T: {args.T}\n\
+                pi_c: {args.pi_c}\n\
+                pi_s: {args.pi_s}\n\
+                in_dataset: {args.in_dataset}\n\
+                in_shift: {args.in_shift}\n\
+                aux_dataset: {args.aux_dataset}\n\
+                ood_dataset: {args.ood_dataset}')
+    
     writer = SummaryWriter(save_path)
     global_train_iter = 0
     best_acc = 0.0
