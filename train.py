@@ -288,90 +288,49 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
     return losses, model, global_train_iter
 
 
-def test(args, in_test_loader, in_shift_test_loader, aux_test_loader, ood_test_loader, model, cross_entropy_loss, writer, global_test_iter):
-    scores = {
-        'in': [],
-        'shift': [],
-        'aux': [],
-        'ood': []
-    }
-
-    losses = {
-        'loss_ce': [],
-        'loss_ce_shift': []
-        }
-    
-    acc = {
-        'acc_in': [],
-        'acc_shift': []
-    }
-
-    energy_test = {
-        'e_in_test': [],
-        'e_shift_test': [],
-        'e_aux_test': [],
-        'e_ood_test': []
-    }
-    
+def test(args, loader, model, cross_entropy_loss, writer, flag_iter, d_type, scores, e_test, losses):
+   
     with torch.no_grad():
-        loader = zip(in_test_loader, in_shift_test_loader, aux_test_loader, ood_test_loader)
         for i, data in enumerate(tqdm(loader)):
-            in_test_batch, in_shift_test_batch, aux_test_batch, ood_test_batch = data
-            
-            in_test_imgs , in_test_labels= in_test_batch
-            in_shift_test_imgs , in_shift_test_labels= in_shift_test_batch
-            aux_test_imgs , aux_test_labels= aux_test_batch
-            ood_test_imgs , ood_test_labels= ood_test_batch
+            flag_iter += 1
+            imgs, lables = data  
+            imgs, lables = imgs.to(args.device), lables.to(args.device)
 
-            in_test_imgs , in_test_labels, in_shift_test_imgs,\
-                  in_shift_test_labels, aux_test_imgs , aux_test_labels,\
-                      ood_test_imgs , ood_test_labels = in_test_imgs.to(args.device) ,\
-                          in_test_labels.to(args.device), in_shift_test_imgs.to(args.device),\
-                              in_shift_test_labels.to(args.device), aux_test_imgs.to(args.device),\
-                                  aux_test_labels.to(args.device), ood_test_imgs.to(args.device), ood_test_labels.to(args.device)
+            out = model(imgs)
 
+            if d_type == 'in':
+                scores['in'].extend(energy_T(out))
+                e_test['e_in_test'].append(energy_test(out, args.learnable_parameter_w))
+                loss_ce_in = cross_entropy_loss(out, lables)
+                acc['acc_in'].append(accuracy_score(list(tensor_to_np(out)), list(tensor_to_np(lables))))
+                losses['loss_ce'].append(loss_ce_in)
+                writer.add_scalar("Evaluation/loss_ce_in", loss_ce_in, flag_iter)
+                writer.add_scalar("Evaluation/e_in_test", e_test['e_in_test'][i], flag_iter)
+                writer.add_scalar("Evaluation/score_in", scores['in'][i], flag_iter)
 
-            data = torch.cat((in_test_imgs, in_shift_test_imgs, aux_test_imgs, ood_test_imgs), 0)
+            if d_type == 'shift':
+                scores['shift'].extend(energy_T(out))
+                e_test['e_shift_test'].append(energy_test(out, args.learnable_parameter_w))
+                loss_ce_shift = cross_entropy_loss(out, lables)
+                acc['acc_shift'].append(accuracy_score(list(tensor_to_np(out)), list(tensor_to_np(lables))))
+                losses['loss_ce_shift'].append(loss_ce_shift)
+                writer.add_scalar("Evaluation/loss_ce_shift", loss_ce_shift, flag_iter)
+                writer.add_scalar("Evaluation/e_shift_test", e_test['e_shift_test'][i], flag_iter)
+                writer.add_scalar("Evaluation/score_shift", scores['shift'][i], flag_iter)
 
-            global_test_iter += 1
+            if d_type == 'aux':
+                scores['aux'].extend(energy_T(out))
+                e_test['e_aux_test'].append(energy_test(out, args.learnable_parameter_w))
+                writer.add_scalar("Evaluation/e_aux_test", e_test['e_aux_test'][i], flag_iter)
+                writer.add_scalar("Evaluation/score_aux", scores['aux'][i], flag_iter)
 
-            out = model(data)
+            if d_type == 'ood':
+                scores['ood'].extend(energy_T(out))
+                e_test['e_ood_test'].append(energy_test(out, args.learnable_parameter_w))
+                writer.add_scalar("Evaluation/e_ood_test", e_test['e_ood_test'][i], flag_iter)
+                writer.add_scalar("Evaluation/score_ood", scores['ood'][i], flag_iter)
 
-            scores['in'].extend(energy_T(out[:len(in_test_imgs)]))
-            scores['shift'].extend(energy_T(out[len(in_test_imgs):len (in_test_imgs) + len(in_shift_test_imgs)]))
-            scores['aux'].extend(energy_T(out[len(in_test_imgs) + len(in_shift_test_imgs):len(in_test_imgs) + len(in_shift_test_imgs) + len(aux_test_imgs)]))
-            scores['ood'].extend(energy_T(out[len(in_test_imgs) + len(in_shift_test_imgs) + len(aux_test_imgs):len(in_test_imgs) + len(in_shift_test_imgs) + len(aux_test_imgs) + len(ood_test_imgs)]))
-
-            energy_test['e_in_test'].append(energy_test(out[:len(in_test_imgs)], args.learnable_parameter_w))
-            energy_test['e_shift_test'].append(energy_test(out[len(in_test_imgs):len (in_test_imgs) + len(in_shift_test_imgs)], args.learnable_parameter_w))
-            energy_test['e_aux_test'].append(energy_test(out[len(in_test_imgs) + len(in_shift_test_imgs):len(in_test_imgs) + len(in_shift_test_imgs) + len(aux_test_imgs)], args.learnable_parameter_w))
-            energy_test['e_ood_test'].append(energy_test(out[len(in_test_imgs) + len(in_shift_test_imgs) + len(aux_test_imgs):len(in_test_imgs) + len(in_shift_test_imgs) + len(aux_test_imgs) + len(ood_test_imgs)], args.learnable_parameter_w))
-            
-            loss_ce_in = cross_entropy_loss(out[:len(in_test_imgs)], in_test_labels)
-            loss_ce_shift = cross_entropy_loss(out[len(in_test_imgs):len(in_test_imgs) + len(in_shift_test_imgs)], in_shift_test_labels)
-
-            acc['acc_in'].append(accuracy_score(list(tensor_to_np(out[:len(in_test_imgs)])), list(tensor_to_np(in_test_labels))))
-            acc['acc_shift'].append(accuracy_score(list(tensor_to_np(out[len(in_test_imgs):len(in_test_imgs) + len(in_shift_test_imgs)])), list(tensor_to_np(in_shift_test_labels))))
-
-            losses['loss_ce'].append(loss_ce_in)
-            losses['loss_ce_shift'].append(loss_ce_shift)
-            
-            writer.add_scalar("Evaluation/loss_ce_in", loss_ce_in, global_test_iter)
-            writer.add_scalar("Evaluation/loss_ce_shift", loss_ce_shift, global_test_iter)
-            writer.add_scalar("Evaluation/e_in_test", energy_test['e_in_test'][i], global_test_iter)
-            writer.add_scalar("Evaluation/e_shift_test", energy_test['e_shift_test'][i], global_test_iter)
-            writer.add_scalar("Evaluation/e_aux_test", energy_test['e_aux_test'][i], global_test_iter)
-            writer.add_scalar("Evaluation/e_ood_test", energy_test['e_ood_test'][i], global_test_iter)
-            writer.add_scalar("Evaluation/score_in", scores['in'][i], global_test_iter)
-            writer.add_scalar("Evaluation/score_shift", scores['shift'][i], global_test_iter)
-            writer.add_scalar("Evaluation/score_aux", scores['aux'][i], global_test_iter)
-            writer.add_scalar("Evaluation/score_ood", scores['ood'][i], global_test_iter)
-            
-    
-    auroc = processing_auroc(scores['in'], scores['ood'])
-    fpr95 = compute_fnr(np.array(scores['in']), np.array(scores['ood']))
-
-    return auroc, fpr95, global_test_iter
+    return flag_iter
 
 
 
@@ -421,17 +380,59 @@ if __name__ == "__main__":
 
     writer = SummaryWriter(save_path)
     global_train_iter = 0
-    global_test_iter = 0
     best_acc = 0.0
 
+    global_test_iter = {
+        'in': 0,
+        'shift': 0,
+        'aux': 0,
+        'ood': 0
+    }
+
+    lodaers = {
+        'in': in_test_loader,
+        'shift': in_shift_test_loader,
+        'aux': aux_test_loader,
+        'ood': ood_test_loader
+        }
+
     for epoch in range(0, args.epochs):
+        scores = {
+        'in': [],
+        'shift': [],
+        'aux': [],
+        'ood': []
+        }
+
+        losses = {
+            'loss_ce': [],
+            'loss_ce_shift': []
+            }
+        
+        acc = {
+            'acc_in': [],
+            'acc_shift': []
+        }
+
+        e_test = {
+            'e_in_test': [],
+            'e_shift_test': [],
+            'e_aux_test': [],
+            'e_ood_test': []
+        }
+        
         print('epoch', epoch + 1, '/', args.epochs)
 
         losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=False)
         # TODO: What is the difference between using all data or last batch to calculate grads!
         losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=True)
         ALM_optimizer(args, model, losses)
-        auroc, fpr95, global_test_iter = test(args, in_test_loader, in_shift_test_loader, aux_test_loader, ood_test_loader, model, cross_entropy_loss, writer, global_test_iter)
+        for d_type in lodaers.keys():
+            global_test_iter[d_type] = test(args, lodaers[d_type], model, cross_entropy_loss, writer, global_test_iter[d_type], d_type, scores, e_test, losses)
+
+        auroc = processing_auroc(scores['in'], scores['ood'])
+        fpr95 = compute_fnr(np.array(scores['in']), np.array(scores['ood']))
+
 
 
         writer.add_scalar("Train_avg/loss", torch.mean(torch.tensor(losses['loss'])), epoch)
