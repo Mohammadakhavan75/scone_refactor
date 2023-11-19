@@ -261,21 +261,13 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         # Calcualting loss function using ALM
         loss = e_wild
 
-        # This is based on formula
-        # if beta_1 * (e_in - alpha) + lambda_1 >= 0:
-        #     loss += (e_in - alpha) * lambda_1 + (beta_1/2) * torch.pow(e_in, 2)
-        # This is based on sudocode
-        if args.beta_1 * e_in + args.lambda_1 >= 0:
-            loss += e_in * args.lambda_1 + (args.beta_1/2) * torch.pow(e_in, 2)
+        if args.beta_1 * (e_in - args.alpha) + args.lambda_1 >= 0:
+            loss += (e_in - args.alpha) * args.lambda_1 + (args.beta_1/2) * torch.pow(e_in, 2)
         else:
             loss += -(((args.lambda_1) ** 2) / (2 * args.beta_1))
 
-        # This is based on formula
-        # if beta_2 * (loss_ce - tou) + lambda_2 >= 0:
-        #     loss += (loss_ce - tou) * lambda_2 + (beta_2/2) * torch.pow(loss_ce, 2)
-        # This is based on sudocode
-        if args.beta_2 * loss_ce + args.lambda_2 >= 0:
-            loss += loss_ce * args.lambda_2 + (args.beta_2/2) * torch.pow(loss_ce, 2)
+        if args.beta_2 * (loss_ce - args.tou) + args.lambda_2 >= 0:
+            loss += (loss_ce - args.tou) * args.lambda_2 + (args.beta_2/2) * torch.pow(loss_ce, 2)
         else:
             loss += -(((args.lambda_2) ** 2) / (2 * args.beta_2))
         
