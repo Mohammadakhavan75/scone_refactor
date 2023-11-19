@@ -76,7 +76,7 @@ def parsing():
                          help='woods with margin loss')
     parser.add_argument('--alpha', type=float, default=0.05,
                          help='number of labeled samples')
-    
+    parser.add_argument('--T', default=1., type=float, help='temperature: energy|Odin')  # T = 1 suggested by energy paper
     parser.add_argument('--mode', type=str, default='multiclass',
                          choices=['multiclass', 'oneclass'],help='number of labeled samples')
     parser.add_argument('--run_index', default=0, type=int, help='run index')
