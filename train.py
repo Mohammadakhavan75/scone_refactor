@@ -114,10 +114,10 @@ def tensor_to_np(x):
 def load_optim(args, model):
     
     if args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate,
+        optimizer = torch.optim.SGD(list(model.parameters()) + list(args.learnable_parameter_w), args.learning_rate,
                                      momentum=args.momentum,weight_decay=args.decay)
     elif args.optimizer == 'adam':
-        optimizer = torch.optim.Adam(model.parameters(), args.learning_rate, 
+        optimizer = torch.optim.Adam(list(model.parameters()) + list(args.learnable_parameter_w), args.learning_rate, 
                                      weight_decay=args.decay)
     else:
         raise NotImplemented("Not implemented optimizer!")
@@ -241,7 +241,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         }
     
     loader = zip(in_train_loader, in_shift_train_loader, aux_train_loader)
-    for data in tqdm(loader):
+    for data in loader:
         in_train_batch, in_shift_train_batch, aux_train_batch = data
         wild_data_imgs, wild_data_lables  = make_wild_data(args, in_train_batch, in_shift_train_batch, aux_train_batch)
         in_data_imgs, in_data_lables = in_train_batch
@@ -276,6 +276,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         if not ALM_optim:
             loss.backward()
             optimizer.step()
+            print(f"Learnable W value: {args.learnable_parameter_w}")
         else:
             loss.backward()
         
@@ -283,6 +284,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         losses['e_wild'].append(e_wild)
         losses['e_in'].append(e_in)
         losses['loss_ce'].append(loss_ce)
+        
         
         if not ALM_optim:
             writer.add_scalar("Train/loss", loss, global_train_iter)
@@ -297,7 +299,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
 def test(args, loader, model, cross_entropy_loss, writer, flag_iter, d_type, scores, e_test, losses):
    
     with torch.no_grad():
-        for i, data in enumerate(tqdm(loader)):
+        for i, data in enumerate(loader):
             flag_iter += 1
             imgs, lables = data  
             imgs, lables = imgs.to(args.device), lables.to(args.device)
@@ -360,7 +362,7 @@ if __name__ == "__main__":
     
     args.learnable_parameter_w = learnable_parameter_w
 
-    optimizer, scheduler = load_optim(args, model)
+    optimizer, scheduler = load_optim(args, model, args.learnable_parameter_w)
     cross_entropy_loss = torch.nn.CrossEntropyLoss()
 
     if args.load_pretrained is not None:
