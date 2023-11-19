@@ -74,7 +74,9 @@ def parsing():
     # Loss function parameters
     parser.add_argument('--eta', type=float, default=-10,
                          help='margin loss')
-    parser.add_argument('--alpha', type=float, default=0.05,
+    parser.add_argument('--alpha', type=float, default=0.3,
+                         help='number of labeled samples')
+    parser.add_argument('--tou', type=float, default=0.3,
                          help='number of labeled samples')
     parser.add_argument('--T', default=1., type=float,
                          help='temperature: energy|Odin')  # T = 1 suggested by energy paper
@@ -347,12 +349,12 @@ def test(args, loader, model, cross_entropy_loss, writer, flag_iter, d_type, sco
 if __name__ == "__main__":
     args = parsing()
     
-    args.beta_1 = 0
-    args.beta_2 = 0
-    args.alpha = 0
+    args.beta_1 = 1
+    args.beta_2 = 1
+    # args.alpha = 0
     args.lambda_1 = 0
     args.lambda_2 = 0
-    args.tou = 0
+    # args.tou = 0
 
 
     in_train_loader, in_test_loader, in_shift_train_loader, in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader = main(args)
@@ -447,10 +449,10 @@ if __name__ == "__main__":
         writer.add_scalar("Train_avg/e_in", torch.mean(torch.tensor(losses['e_in'])), epoch)
         writer.add_scalar("Train_avg/e_wild", torch.mean(torch.tensor(losses['e_wild'])), epoch)
         writer.add_scalar("Train_avg/loss_ce", torch.mean(torch.tensor(losses['loss_ce'])), epoch)
-        writer.add_scalar("Train_avg/lambdas", args.lambda_1, epoch)
-        writer.add_scalar("Train_avg/lambdas", args.lambda_2, epoch)
-        writer.add_scalar("Train_avg/betas", args.beta_1, epoch)
-        writer.add_scalar("Train_avg/betas", args.beta_2, epoch)
+        writer.add_scalar("Train_avg/lambda_1", args.lambda_1, epoch)
+        writer.add_scalar("Train_avg/lambda_2", args.lambda_2, epoch)
+        writer.add_scalar("Train_avg/beta_1", args.beta_1, epoch)
+        writer.add_scalar("Train_avg/beta_2", args.beta_2, epoch)
         writer.add_scalar("Evaluation_avg/auroc", auroc, epoch)
         writer.add_scalar("Evaluation_avg/fpr95", fpr95, epoch)
 
