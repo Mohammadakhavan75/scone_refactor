@@ -433,8 +433,6 @@ if __name__ == "__main__":
         auroc = processing_auroc(scores['in'], scores['ood'])
         fpr95 = compute_fnr(np.array(scores['in']), np.array(scores['ood']))
 
-
-
         writer.add_scalar("Train_avg/loss", torch.mean(torch.tensor(losses['loss'])), epoch)
         writer.add_scalar("Train_avg/e_in", torch.mean(torch.tensor(losses['e_in'])), epoch)
         writer.add_scalar("Train_avg/e_wild", torch.mean(torch.tensor(losses['e_wild'])), epoch)
@@ -442,18 +440,14 @@ if __name__ == "__main__":
         writer.add_scalar("Evaluation_avg/auroc", auroc, epoch)
         writer.add_scalar("Evaluation_avg/fpr95", fpr95, epoch)
 
-
-        print(f"Train/avg_loss: {np.mean(epoch_loss)} Train/avg_acc: {np.mean(epoch_accuracies)} \
-            Evaluation/avg_loss: {np.mean(eval_loss)} Evaluation/avg_acc: {np.mean(eval_acc)}  Evaluation/avg_auc: {np.mean(eval_auc)}")
-        
         if (epoch+1) % 5 == 0:
             torch.save(model.state_dict(), os.path.join(model_save_path, f'model_params_epoch_{epoch}.pt'))
 
-        if np.mean(eval_acc) > best_acc:
-            best_acc = np.mean(eval_acc)
+        if np.mean(acc['acc_in']) > best_acc:
+            best_acc = np.mean(acc['acc_in'])
             torch.save(model.state_dict(), os.path.join(model_save_path, 'best_params.pt'))
         
-        if np.mean(eval_acc) < best_acc:
+        if np.mean(acc['acc_in']) < best_acc:
             scheduler.step()
         
 
