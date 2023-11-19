@@ -302,8 +302,8 @@ def test(args, loader, model, cross_entropy_loss, writer, flag_iter, d_type, sco
                 scores['in'].extend(energy_T(out))
                 e_test['e_in_test'].append(energy_test(out, args.learnable_parameter_w))
                 loss_ce_in = cross_entropy_loss(out, lables)
-                acc['acc_in'].append(accuracy_score(list(tensor_to_np(out)), list(tensor_to_np(lables))))
-                losses['loss_ce'].append(loss_ce_in)
+                acc['acc_in'].append(accuracy_score(list(tensor_to_np(out.data.max(1)[1])), list(tensor_to_np(lables))))
+                test_losses['loss_ce'].append(loss_ce_in)
                 writer.add_scalar("Evaluation/loss_ce_in", loss_ce_in, flag_iter)
                 writer.add_scalar("Evaluation/e_in_test", e_test['e_in_test'][i], flag_iter)
                 writer.add_scalar("Evaluation/score_in", scores['in'][i], flag_iter)
@@ -312,8 +312,8 @@ def test(args, loader, model, cross_entropy_loss, writer, flag_iter, d_type, sco
                 scores['shift'].extend(energy_T(out))
                 e_test['e_shift_test'].append(energy_test(out, args.learnable_parameter_w))
                 loss_ce_shift = cross_entropy_loss(out, lables)
-                acc['acc_shift'].append(accuracy_score(list(tensor_to_np(out)), list(tensor_to_np(lables))))
-                losses['loss_ce_shift'].append(loss_ce_shift)
+                acc['acc_shift'].append(accuracy_score(list(tensor_to_np(out.data.max(1)[1])), list(tensor_to_np(lables))))
+                test_losses['loss_ce_shift'].append(loss_ce_shift)
                 writer.add_scalar("Evaluation/loss_ce_shift", loss_ce_shift, flag_iter)
                 writer.add_scalar("Evaluation/e_shift_test", e_test['e_shift_test'][i], flag_iter)
                 writer.add_scalar("Evaluation/score_shift", scores['shift'][i], flag_iter)
@@ -404,7 +404,7 @@ if __name__ == "__main__":
         'ood': []
         }
 
-        losses = {
+        test_losses = {
             'loss_ce': [],
             'loss_ce_shift': []
             }
@@ -428,7 +428,7 @@ if __name__ == "__main__":
         losses, model, global_train_iter = train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=True)
         ALM_optimizer(args, model, losses)
         for d_type in lodaers.keys():
-            global_test_iter[d_type] = test(args, lodaers[d_type], model, cross_entropy_loss, writer, global_test_iter[d_type], d_type, scores, e_test, losses)
+            global_test_iter[d_type] = test(args, lodaers[d_type], model, cross_entropy_loss, writer, global_test_iter[d_type], d_type, scores, e_test, test_losses)
 
         auroc = processing_auroc(scores['in'], scores['ood'])
         fpr95 = compute_fnr(np.array(scores['in']), np.array(scores['ood']))
