@@ -93,6 +93,10 @@ def parsing():
                          help='lambda_1 learning rate')
     parser.add_argument('--lambda_2_lr', default=0.1, type=int,
                          help='lambda_1 learning rate')
+    parser.add_argument('--beta_1', default=0.1, type=int,
+                         help='beta_1 parameter')
+    parser.add_argument('--beta_2', default=0.1, type=int,
+                         help='beta_2 beta_1')
     parser.add_argument('--beta_penalty', default=0.1, type=int,
                          help='beta penalty')
     parser.add_argument('--tolerance', default=0.1, type=int,
@@ -343,10 +347,8 @@ if __name__ == "__main__":
     
     args.beta_1 = 1
     args.beta_2 = 1
-    # args.alpha = 0
     args.lambda_1 = 0
     args.lambda_2 = 0
-    # args.tou = 0
 
 
     in_train_loader, in_test_loader, in_shift_train_loader, in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader = main(args)
