@@ -125,6 +125,7 @@ def main(args):
 
 
     # ==========================
+    # TODO: It is worng and I should rewrite the test function to run on each dataset full length
     max_length = np.min([len(in_test_dataset), len(in_shift_test_dataset), len(aux_test_dataset), len(ood_test_dataset)])
 
     idx_ = np.array(range(len(in_test_dataset)))
