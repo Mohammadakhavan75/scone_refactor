@@ -125,7 +125,7 @@ def main(args):
 
 
     # ==========================
-    max_length = np.min([len(in_test_dataset), len(in_shift_test_dataset), len(aux_test_dataset)])
+    max_length = np.min([len(in_test_dataset), len(in_shift_test_dataset), len(aux_test_dataset), len(ood_test_dataset)])
 
     idx_ = np.array(range(len(in_test_dataset)))
     rng.shuffle(idx_)
@@ -141,6 +141,11 @@ def main(args):
     rng.shuffle(idx_)
     idx_ = idx_[:max_length]
     aux_test_dataset = torch.utils.data.Subset(aux_test_dataset, idx_)
+
+    idx_ = np.array(range(len(ood_test_dataset)))
+    rng.shuffle(idx_)
+    idx_ = idx_[:max_length]
+    ood_test_dataset = torch.utils.data.Subset(ood_test_dataset, idx_)
 
 
     in_train_loader, in_test_loader = loader(in_train_dataset, in_test_dataset, args.batch_size, args.num_worker)
