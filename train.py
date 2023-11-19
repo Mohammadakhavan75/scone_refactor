@@ -24,7 +24,7 @@ def parsing():
                         help='Test out of distribution dataset')
     parser.add_argument('--pi_c', type=float, default=0.5,
                         help='pi in ssnd framework, proportion of ood data in auxiliary dataset')
-    parser.add_argument('--pi_s', type=float, default=0.5,
+    parser.add_argument('--pi_s', type=float, default=0.1,
                         help='pi in ssnd framework, proportion of ood data in auxiliary dataset')
     parser.add_argument('--in_shift', type=str, default='gaussian_noise',
                          help='corrupted type of images')
@@ -72,11 +72,11 @@ def parsing():
                         help='Pre-fetching threads.')
     
     # Loss function parameters
-    parser.add_argument('--eta', type=float, default=-10,
+    parser.add_argument('--eta', type=float, default=1,
                          help='margin loss')
-    parser.add_argument('--alpha', type=float, default=0.3,
+    parser.add_argument('--alpha', type=float, default=0.05,
                          help='number of labeled samples')
-    parser.add_argument('--tou', type=float, default=0.3,
+    parser.add_argument('--tou', type=float, default=2,
                          help='number of labeled samples')
     parser.add_argument('--T', default=1., type=float,
                          help='temperature: energy|Odin')  # T = 1 suggested by energy paper
@@ -89,17 +89,17 @@ def parsing():
                          help='Initial lambda_1 value')
     parser.add_argument('--lambda_2', default=0, type=int,
                          help='Initial lambda_1 value')
-    parser.add_argument('--lambda_1_lr', default=0.1, type=int,
+    parser.add_argument('--lambda_1_lr', default=1, type=int,
                          help='lambda_1 learning rate')
-    parser.add_argument('--lambda_2_lr', default=0.1, type=int,
+    parser.add_argument('--lambda_2_lr', default=1, type=int,
                          help='lambda_1 learning rate')
-    parser.add_argument('--beta_1', default=0.1, type=int,
+    parser.add_argument('--beta_1', default=1, type=int,
                          help='beta_1 parameter')
-    parser.add_argument('--beta_2', default=0.1, type=int,
+    parser.add_argument('--beta_2', default=1, type=int,
                          help='beta_2 beta_1')
-    parser.add_argument('--beta_penalty', default=0.1, type=int,
+    parser.add_argument('--beta_penalty', default=1.5, type=int,
                          help='beta penalty')
-    parser.add_argument('--tolerance', default=0.1, type=int,
+    parser.add_argument('--tolerance', default=0, type=int,
                          help='threshold tolerance')
 
     args = parser.parse_args()
@@ -344,12 +344,6 @@ def test(args, loader, model, cross_entropy_loss, writer, flag_iter, d_type, sco
 
 if __name__ == "__main__":
     args = parsing()
-    
-    args.beta_1 = 1
-    args.beta_2 = 1
-    args.lambda_1 = 0
-    args.lambda_2 = 0
-
 
     in_train_loader, in_test_loader, in_shift_train_loader, in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader = main(args)
     
