@@ -18,7 +18,7 @@ def parsing():
     # datasets
     parser.add_argument('--in_dataset', type=str, choices=['cifar10', 'cifar100'],
                         default='cifar10', help='Choose between CIFAR-10, CIFAR-100, MNIST.')
-    parser.add_argument('--aux_dataset', type=str, default='svhn', choices=['svhn', 'cifar10', 'cifar100', 'MNIST'],
+    parser.add_argument('--aux_dataset', type=str, default='svhn', choices=['svhn', 'cifar10', 'cifar100', 'MNIST', 'diffusion'],
                         help='Auxiliary out of distribution dataset')
     parser.add_argument('--ood_dataset', type=str, default='svhn', choices=['svhn'],
                         help='Test out of distribution dataset')
@@ -355,7 +355,9 @@ if __name__ == "__main__":
         raise NotImplemented("mode must be multiclass or oneclass !!")
 
     model = WideResNet(args.layers, num_classes, args.widen_factor, dropRate=args.droprate)
-    learnable_parameter_w = torch.nn.Linear(1, 1)
+    # TODO: in scone code the bias was True 
+    # learnable_parameter_w = torch.nn.Linear(1, 1) 
+    learnable_parameter_w = torch.nn.Linear(1, 1, bias=None)
 
     model = model.to(args.device)
     learnable_parameter_w = learnable_parameter_w.to(args.device)
