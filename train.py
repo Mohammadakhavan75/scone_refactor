@@ -18,7 +18,7 @@ def parsing():
     # datasets
     parser.add_argument('--in_dataset', type=str, choices=['cifar10', 'cifar100'],
                         default='cifar10', help='Choose between CIFAR-10, CIFAR-100, MNIST.')
-    parser.add_argument('--aux_dataset', type=str, default='svhn', choices=['svhn'],
+    parser.add_argument('--aux_dataset', type=str, default='svhn', choices=['svhn', 'cifar10', 'cifar100', 'MNIST'],
                         help='Auxiliary out of distribution dataset')
     parser.add_argument('--ood_dataset', type=str, default='svhn', choices=['svhn'],
                         help='Test out of distribution dataset')
@@ -114,10 +114,10 @@ def tensor_to_np(x):
 def load_optim(args, model):
     
     if args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD(list(model.parameters()) + list(args.learnable_parameter_w), args.learning_rate,
+        optimizer = torch.optim.SGD(list(model.parameters()) + list(args.learnable_parameter_w.parameters()), args.learning_rate,
                                      momentum=args.momentum,weight_decay=args.decay)
     elif args.optimizer == 'adam':
-        optimizer = torch.optim.Adam(list(model.parameters()) + list(args.learnable_parameter_w), args.learning_rate, 
+        optimizer = torch.optim.Adam(list(model.parameters()) + list(args.learnable_parameter_w.parameters()), args.learning_rate, 
                                      weight_decay=args.decay)
     else:
         raise NotImplemented("Not implemented optimizer!")
@@ -261,7 +261,8 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         loss_ce = cross_entropy_loss(out[:len(in_data_imgs)], in_data_lables)
 
         # Calcualting loss function using ALM
-        loss = e_wild
+        loss = 0
+        loss += e_wild
 
         if args.beta_1 * (e_in - args.alpha) + args.lambda_1 >= 0:
             loss += (e_in - args.alpha) * args.lambda_1 + (args.beta_1/2) * torch.pow(e_in, 2)
@@ -276,7 +277,6 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         if not ALM_optim:
             loss.backward()
             optimizer.step()
-            print(f"Learnable W value: {args.learnable_parameter_w}")
         else:
             loss.backward()
         
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     
     args.learnable_parameter_w = learnable_parameter_w
 
-    optimizer, scheduler = load_optim(args, model, args.learnable_parameter_w)
+    optimizer, scheduler = load_optim(args, model)
     cross_entropy_loss = torch.nn.CrossEntropyLoss()
 
     if args.load_pretrained is not None:
@@ -384,7 +384,7 @@ if __name__ == "__main__":
                 learning_rate: {args.learning_rate}\n\
                 lr_update_rate: {args.lr_update_rate}\n\
                 lr_gamma: {args.lr_gamma}\n\
-                optimizer: {args.optimizer}\
+                optimizer: {args.optimizer}\n\
                 lambda_1: {args.lambda_1}\n\
                 lambda_2: {args.lambda_2}\n\
                 lambda_1_lr: {args.lambda_1_lr}\n\
