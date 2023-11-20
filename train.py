@@ -24,7 +24,7 @@ def parsing():
                         help='Test out of distribution dataset')
     parser.add_argument('--pi_c', type=float, default=0.5,
                         help='pi in ssnd framework, proportion of ood data in auxiliary dataset')
-    parser.add_argument('--pi_s', type=float, default=0.5,
+    parser.add_argument('--pi_s', type=float, default=0.1,
                         help='pi in ssnd framework, proportion of ood data in auxiliary dataset')
     parser.add_argument('--in_shift', type=str, default='gaussian_noise',
                          help='corrupted type of images')
@@ -72,9 +72,11 @@ def parsing():
                         help='Pre-fetching threads.')
     
     # Loss function parameters
-    parser.add_argument('--eta', type=float, default=-10,
+    parser.add_argument('--eta', type=float, default=1,
                          help='margin loss')
     parser.add_argument('--alpha', type=float, default=0.05,
+                         help='number of labeled samples')
+    parser.add_argument('--tou', type=float, default=2,
                          help='number of labeled samples')
     parser.add_argument('--T', default=1., type=float,
                          help='temperature: energy|Odin')  # T = 1 suggested by energy paper
@@ -87,13 +89,17 @@ def parsing():
                          help='Initial lambda_1 value')
     parser.add_argument('--lambda_2', default=0, type=int,
                          help='Initial lambda_1 value')
-    parser.add_argument('--lambda_1_lr', default=0.1, type=int,
+    parser.add_argument('--lambda_1_lr', default=1, type=int,
                          help='lambda_1 learning rate')
-    parser.add_argument('--lambda_2_lr', default=0.1, type=int,
+    parser.add_argument('--lambda_2_lr', default=1, type=int,
                          help='lambda_1 learning rate')
-    parser.add_argument('--beta_penalty', default=0.1, type=int,
+    parser.add_argument('--beta_1', default=1, type=int,
+                         help='beta_1 parameter')
+    parser.add_argument('--beta_2', default=1, type=int,
+                         help='beta_2 beta_1')
+    parser.add_argument('--beta_penalty', default=1.5, type=int,
                          help='beta penalty')
-    parser.add_argument('--tolerance', default=0.1, type=int,
+    parser.add_argument('--tolerance', default=0, type=int,
                          help='threshold tolerance')
 
     args = parser.parse_args()
@@ -108,10 +114,10 @@ def tensor_to_np(x):
 def load_optim(args, model):
     
     if args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate,
+        optimizer = torch.optim.SGD(list(model.parameters()) + list(args.learnable_parameter_w), args.learning_rate,
                                      momentum=args.momentum,weight_decay=args.decay)
     elif args.optimizer == 'adam':
-        optimizer = torch.optim.Adam(model.parameters(), args.learning_rate, 
+        optimizer = torch.optim.Adam(list(model.parameters()) + list(args.learnable_parameter_w), args.learning_rate, 
                                      weight_decay=args.decay)
     else:
         raise NotImplemented("Not implemented optimizer!")
@@ -192,7 +198,6 @@ def grads_lambda_2(args, losses):
         return -2 * args.lambda_2/(2*args.beta_2)
 
 
-
 def processing_auroc(out_scores, in_scores):
     in_labels = np.zeros(len(in_scores))
     out_labels = np.ones(len(out_scores))
@@ -225,7 +230,6 @@ def compute_fnr(out_scores, in_scores, fpr_cutoff=.05):
     return fnr_at_fpr_cutoff
 
 
-
 def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model, cross_entropy_loss, optimizer, writer, global_train_iter, ALM_optim=False):
     
     optimizer.zero_grad()
@@ -237,7 +241,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         }
     
     loader = zip(in_train_loader, in_shift_train_loader, aux_train_loader)
-    for data in tqdm(loader):
+    for data in loader:
         in_train_batch, in_shift_train_batch, aux_train_batch = data
         wild_data_imgs, wild_data_lables  = make_wild_data(args, in_train_batch, in_shift_train_batch, aux_train_batch)
         in_data_imgs, in_data_lables = in_train_batch
@@ -259,27 +263,20 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         # Calcualting loss function using ALM
         loss = e_wild
 
-        # This is based on formula
-        # if beta_1 * (e_in - alpha) + lambda_1 >= 0:
-        #     loss += (e_in - alpha) * lambda_1 + (beta_1/2) * torch.pow(e_in, 2)
-        # This is based on sudocode
-        if args.beta_1 * e_in + args.lambda_1 >= 0:
-            loss += e_in * args.lambda_1 + (args.beta_1/2) * torch.pow(e_in, 2)
+        if args.beta_1 * (e_in - args.alpha) + args.lambda_1 >= 0:
+            loss += (e_in - args.alpha) * args.lambda_1 + (args.beta_1/2) * torch.pow(e_in, 2)
         else:
             loss += -(((args.lambda_1) ** 2) / (2 * args.beta_1))
 
-        # This is based on formula
-        # if beta_2 * (loss_ce - tou) + lambda_2 >= 0:
-        #     loss += (loss_ce - tou) * lambda_2 + (beta_2/2) * torch.pow(loss_ce, 2)
-        # This is based on sudocode
-        if args.beta_2 * loss_ce + args.lambda_2 >= 0:
-            loss += loss_ce * args.lambda_2 + (args.beta_2/2) * torch.pow(loss_ce, 2)
+        if args.beta_2 * (loss_ce - args.tou) + args.lambda_2 >= 0:
+            loss += (loss_ce - args.tou) * args.lambda_2 + (args.beta_2/2) * torch.pow(loss_ce, 2)
         else:
             loss += -(((args.lambda_2) ** 2) / (2 * args.beta_2))
         
         if not ALM_optim:
             loss.backward()
             optimizer.step()
+            print(f"Learnable W value: {args.learnable_parameter_w}")
         else:
             loss.backward()
         
@@ -287,6 +284,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
         losses['e_wild'].append(e_wild)
         losses['e_in'].append(e_in)
         losses['loss_ce'].append(loss_ce)
+        
         
         if not ALM_optim:
             writer.add_scalar("Train/loss", loss, global_train_iter)
@@ -301,7 +299,7 @@ def train(args, in_train_loader, in_shift_train_loader, aux_train_loader, model,
 def test(args, loader, model, cross_entropy_loss, writer, flag_iter, d_type, scores, e_test, losses):
    
     with torch.no_grad():
-        for i, data in enumerate(tqdm(loader)):
+        for i, data in enumerate(loader):
             flag_iter += 1
             imgs, lables = data  
             imgs, lables = imgs.to(args.device), lables.to(args.device)
@@ -346,14 +344,6 @@ def test(args, loader, model, cross_entropy_loss, writer, flag_iter, d_type, sco
 
 if __name__ == "__main__":
     args = parsing()
-    
-    args.beta_1 = 0
-    args.beta_2 = 0
-    args.alpha = 0
-    args.lambda_1 = 0
-    args.lambda_2 = 0
-    args.tou = 0
-
 
     in_train_loader, in_test_loader, in_shift_train_loader, in_shift_test_loader, aux_train_loader, aux_test_loader, ood_test_loader = main(args)
     
@@ -372,7 +362,7 @@ if __name__ == "__main__":
     
     args.learnable_parameter_w = learnable_parameter_w
 
-    optimizer, scheduler = load_optim(args, model)
+    optimizer, scheduler = load_optim(args, model, args.learnable_parameter_w)
     cross_entropy_loss = torch.nn.CrossEntropyLoss()
 
     if args.load_pretrained is not None:
@@ -383,11 +373,37 @@ if __name__ == "__main__":
     #     model_save_path = save_path + 'models/'
     # else:
     addr = datetime.today().strftime('%Y_%m_%d_%H_%M_%S_%f')
-    save_path = './run/exp_' + addr + f'_{args.mode}' + f"__{args.run_index}__" + f'_{args.learning_rate}' + f'_{args.lr_update_rate}' + f'_{args.lr_gamma}' + f'_{args.optimizer}' + '/'
+    save_path = './run/exp_' + addr + '/'
     model_save_path = save_path + 'models/'
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path, exist_ok=True)
 
+    with open(save_path + 'config.txt', 'w') as f:
+        f.write(f'mode: {args.mode}\n\
+                run index: {args.run_index}\n\
+                learning_rate: {args.learning_rate}\n\
+                lr_update_rate: {args.lr_update_rate}\n\
+                lr_gamma: {args.lr_gamma}\n\
+                optimizer: {args.optimizer}\
+                lambda_1: {args.lambda_1}\n\
+                lambda_2: {args.lambda_2}\n\
+                lambda_1_lr: {args.lambda_1_lr}\n\
+                lambda_2_lr: {args.lambda_2_lr}\n\
+                beta_1: {args.beta_1}\n\
+                beta_2: {args.beta_2}\n\
+                beta_penalty: {args.beta_penalty}\n\
+                tolerance: {args.tolerance}\n\
+                eta: {args.eta}\n\
+                tou: {args.tou}\n\
+                alpha: {args.alpha}\n\
+                T: {args.T}\n\
+                pi_c: {args.pi_c}\n\
+                pi_s: {args.pi_s}\n\
+                in_dataset: {args.in_dataset}\n\
+                in_shift: {args.in_shift}\n\
+                aux_dataset: {args.aux_dataset}\n\
+                ood_dataset: {args.ood_dataset}')
+    
     writer = SummaryWriter(save_path)
     global_train_iter = 0
     best_acc = 0.0
@@ -447,10 +463,10 @@ if __name__ == "__main__":
         writer.add_scalar("Train_avg/e_in", torch.mean(torch.tensor(losses['e_in'])), epoch)
         writer.add_scalar("Train_avg/e_wild", torch.mean(torch.tensor(losses['e_wild'])), epoch)
         writer.add_scalar("Train_avg/loss_ce", torch.mean(torch.tensor(losses['loss_ce'])), epoch)
-        writer.add_scalar("Train_avg/lambdas", args.lambda_1, epoch)
-        writer.add_scalar("Train_avg/lambdas", args.lambda_2, epoch)
-        writer.add_scalar("Train_avg/betas", args.beta_1, epoch)
-        writer.add_scalar("Train_avg/betas", args.beta_2, epoch)
+        writer.add_scalar("Train_avg/lambda_1", args.lambda_1, epoch)
+        writer.add_scalar("Train_avg/lambda_2", args.lambda_2, epoch)
+        writer.add_scalar("Train_avg/beta_1", args.beta_1, epoch)
+        writer.add_scalar("Train_avg/beta_2", args.beta_2, epoch)
         writer.add_scalar("Evaluation_avg/auroc", auroc, epoch)
         writer.add_scalar("Evaluation_avg/fpr95", fpr95, epoch)
 
