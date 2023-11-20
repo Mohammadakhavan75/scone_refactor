@@ -19,7 +19,11 @@ transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean
 class np_dataset(torch.utils.data.Dataset):
     def __init__(self, imgs_path, targets, transform):
         self.data = np.load(imgs_path)
-        self.targets = np.load(targets)
+        if targets is not None:
+            self.targets = np.load(targets)
+        else:
+            self.targets = np.asarray([j for j in range(10) for i in range(5000)])
+            
         self.transform = transform
 
 
@@ -67,7 +71,8 @@ def load_np_dataset(train_img_path, train_target_path, test_img_path, test_trage
     if test_img_path is not None:
         test_data = np_dataset(test_img_path, test_traget_path, transform) 
     else:
-        test_data = None
+        # test_data = None
+        test_data = train_data
 
     return train_data, test_data
 
@@ -86,13 +91,20 @@ def main(args):
         
     
     if args.in_dataset == 'cifar100':
-        in_train_dataset, in_test_dataset = load_CIFAR('cifar10')
+        in_train_dataset, in_test_dataset = load_CIFAR('cifar100')
     
     if args.aux_dataset == 'svhn':
         aux_train_dataset, aux_test_dataset = load_SVHN()
     
     if args.aux_dataset == 'cifar10':
         aux_train_dataset, aux_test_dataset = load_CIFAR('cifar10')
+
+    if args.aux_dataset == 'cifar100':
+        aux_train_dataset, aux_test_dataset = load_CIFAR('cifar100')
+
+    if args.aux_dataset == 'diffusion':
+        Diffusion_DATA = '/storage/users/makhavan/CSI/exp05/data_diffusion/cifar10_training_gen_data.npy'
+        aux_train_dataset, aux_test_dataset = load_np_dataset(Diffusion_DATA, None, None, None)
         
     
     if args.in_shift is not None:
