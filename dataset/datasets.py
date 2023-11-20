@@ -90,6 +90,9 @@ def main(args):
     
     if args.aux_dataset == 'svhn':
         aux_train_dataset, aux_test_dataset = load_SVHN()
+    
+    if args.aux_dataset == 'cifar10':
+        aux_train_dataset, aux_test_dataset = load_CIFAR('cifar10')
         
     
     if args.in_shift is not None:
